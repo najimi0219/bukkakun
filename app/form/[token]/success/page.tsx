@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Mail, Clock, ArrowRight } from "lucide-react";
-import { getInquiry } from "@/lib/store";
+import { getInquiry, initStore } from "@/lib/store";
 import type { Inquiry } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
@@ -13,7 +13,15 @@ function SuccessContent() {
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
 
   useEffect(() => {
-    if (inqId) setInquiry(getInquiry(inqId) ?? null);
+    if (!inqId) return;
+    let cancelled = false;
+    void initStore().then(() => {
+      if (cancelled) return;
+      setInquiry(getInquiry(inqId) ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [inqId]);
 
   return (
@@ -59,7 +67,7 @@ function SuccessContent() {
 
         {inquiry && (
           <a
-            href={`/download/${inquiry.download_token}`}
+            href={"/download/" + inquiry.download_token}
             className="btn-primary mt-6 w-full"
           >
             資料DLページをそのまま開く

@@ -17,6 +17,7 @@ import {
   getInquiryByToken,
   getProperty,
   getTenant,
+  initStore,
 } from "@/lib/store";
 import { getSupabase, PROPERTY_DOCS_BUCKET } from "@/lib/supabase";
 import {
@@ -39,7 +40,9 @@ export default function DownloadPage() {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const sync = () => {
+      if (cancelled) return;
       const inq = getInquiryByToken(params.token);
       if (inq) {
         setInquiry(inq);
@@ -52,9 +55,12 @@ export default function DownloadPage() {
       }
       setLoading(false);
     };
-    sync();
+    void initStore().then(() => sync());
     window.addEventListener("bukkenlink:dbchange", sync);
-    return () => window.removeEventListener("bukkenlink:dbchange", sync);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("bukkenlink:dbchange", sync);
+    };
   }, [params.token]);
 
   const expired = inquiry

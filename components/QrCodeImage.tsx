@@ -15,10 +15,12 @@ const DEFAULT_OPTIONS = {
 
 export function QrCodeImage({
   text,
-  size = 256,
+  size = 200,
   className,
 }: {
   text: string;
+  // Max display size in CSS px. The actual canvas may shrink to fit its
+  // container, but never exceeds this.
   size?: number;
   className?: string;
 }) {
@@ -26,7 +28,7 @@ export function QrCodeImage({
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    // Render at 2x for sharp display on Retina/HiDPI screens.
+    // Render the canvas at 2x for sharp display on Retina/HiDPI screens.
     const renderPx = size * 2;
     QRCode.toCanvas(canvasRef.current, text, {
       ...DEFAULT_OPTIONS,
@@ -40,7 +42,15 @@ export function QrCodeImage({
     <canvas
       ref={canvasRef}
       className={className}
-      style={{ width: size, height: size, imageRendering: "pixelated" }}
+      style={{
+        width: "100%",
+        height: "auto",
+        maxWidth: size,
+        maxHeight: size,
+        aspectRatio: "1 / 1",
+        display: "block",
+        imageRendering: "pixelated",
+      }}
     />
   );
 }

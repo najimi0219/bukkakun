@@ -18,6 +18,7 @@ import {
   getNotificationSettings,
   getPropertyByToken,
   getTenant,
+  initStore,
   recordSentEmail,
   renderTemplate,
 } from "@/lib/store";
@@ -49,12 +50,19 @@ export default function FormPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const p = getPropertyByToken(params.token);
-    if (p) {
-      setProperty(p);
-      setTenant(getTenant(p.tenant_id) ?? null);
-    }
-    setLoading(false);
+    let cancelled = false;
+    void initStore().then(() => {
+      if (cancelled) return;
+      const p = getPropertyByToken(params.token);
+      if (p) {
+        setProperty(p);
+        setTenant(getTenant(p.tenant_id) ?? null);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [params.token]);
 
   const onSubmit = (e: React.FormEvent) => {
@@ -88,7 +96,6 @@ export default function FormPage() {
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
     });
 
-    // Auto-reply email — assembled according to the tenant's email_send_settings.
     const sendCfg = getEmailSendSettings(tenant.id);
     const tpl = getDefaultTemplate(tenant.id);
     if (tpl) {
@@ -124,7 +131,6 @@ export default function FormPage() {
       });
     }
 
-    // Internal notification (always BukkenLink → staff)
     const notif = getNotificationSettings(tenant.id);
     if (notif) {
       notif.email_recipients.forEach((to) => {
