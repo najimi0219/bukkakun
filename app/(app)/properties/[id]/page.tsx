@@ -27,7 +27,6 @@ import {
 } from "@/lib/store";
 import {
   PROPERTY_TYPE_LABEL,
-  STORAGE_PROVIDER_COLOR,
   STORAGE_PROVIDER_LABEL,
   type Property,
   type PropertyDocument,
@@ -35,10 +34,11 @@ import {
   INQUIRY_STATUS_COLOR,
   INQUIRY_STATUS_LABEL,
 } from "@/lib/types";
-import { formatYen, formatDate, formatBytes, relativeTime } from "@/lib/format";
+import { formatYen, formatBytes, relativeTime } from "@/lib/format";
 import { QrCodeImage, qrCodeDataUrl } from "@/components/QrCodeImage";
 import { StorageProviderIcon } from "@/components/StorageProviderIcon";
 import { useToast } from "@/components/Toast";
+import { getSupabase, PROPERTY_DOCS_BUCKET } from "@/lib/supabase";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -66,8 +66,8 @@ export default function PropertyDetailPage() {
 
   const formUrl = useMemo(() => {
     if (!property) return "";
-    if (typeof window === "undefined") return `/form/${property.form_token}`;
-    return `${window.location.origin}/form/${property.form_token}`;
+    if (typeof window === "undefined") return "/form/" + property.form_token;
+    return window.location.origin + "/form/" + property.form_token;
   }, [property]);
 
   const assignees = useMemo(() => {
@@ -86,8 +86,23 @@ export default function PropertyDetailPage() {
     const dataUrl = await qrCodeDataUrl(formUrl, 800);
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `qr-${property!.title}.png`;
+    a.download = "qr-" + (property?.title ?? "property") + ".png";
     a.click();
+  };
+
+  const openDocument = async (d: PropertyDocument) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage
+      .from(PROPERTY_DOCS_BUCKET)
+      .createSignedUrl(d.external_file_id, 300);
+    if (error || !data?.signedUrl) {
+      toast.show(
+        "ファイルを開けません: " + (error?.message ?? "デモ用プレースホルダー"),
+        "error"
+      );
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noreferrer");
   };
 
   if (!tenant || !property) return null;
@@ -106,11 +121,12 @@ export default function PropertyDetailPage() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span
-                className={`badge ${
-                  property.status === "published"
+                className={
+                  "badge " +
+                  (property.status === "published"
                     ? "bg-emerald-100 text-emerald-700"
-                    : "bg-gray-100 text-gray-600"
-                }`}
+                    : "bg-gray-100 text-gray-600")
+                }
               >
                 {property.status === "published" ? "公開中" : "下書き"}
               </span>
@@ -127,7 +143,7 @@ export default function PropertyDetailPage() {
             <p className="text-sm text-gray-500 mt-1">{property.address}</p>
           </div>
           <Link
-            href={`/properties/${property.id}/edit`}
+            href={"/properties/" + property.id + "/edit"}
             className="btn-secondary"
           >
             <Pencil className="w-4 h-4" />
@@ -142,42 +158,22 @@ export default function PropertyDetailPage() {
             <h2 className="font-semibold text-gray-900 mb-4">物件情報</h2>
             <div className="grid sm:grid-cols-2 gap-4 text-sm">
               <Field icon={JapaneseYen} label="価格" value={formatYen(property.price)} />
-              <Field
-                icon={Building2}
-                label="種別"
-                value={PROPERTY_TYPE_LABEL[property.property_type]}
-              />
+              <Field icon={Building2} label="種別" value={PROPERTY_TYPE_LABEL[property.property_type]} />
               <Field icon={MapPin} label="所在地" value={property.address} />
               {property.land_area && (
-                <Field
-                  icon={MapPin}
-                  label="土地面積"
-                  value={`${property.land_area} ㎡`}
-                />
+                <Field icon={MapPin} label="土地面積" value={property.land_area + " ㎡"} />
               )}
               {property.building_area && (
-                <Field
-                  icon={Building2}
-                  label="建物面積"
-                  value={`${property.building_area} ㎡`}
-                />
+                <Field icon={Building2} label="建物面積" value={property.building_area + " ㎡"} />
               )}
               {property.built_year_month && (
-                <Field
-                  icon={Calendar}
-                  label="築年月"
-                  value={property.built_year_month}
-                />
+                <Field icon={Calendar} label="築年月" value={property.built_year_month} />
               )}
               {property.transport && (
                 <Field icon={Train} label="交通" value={property.transport} />
               )}
               {property.reins_id && (
-                <Field
-                  icon={Hash}
-                  label="レインズ番号"
-                  value={property.reins_id}
-                />
+                <Field icon={Hash} label="レインズ番号" value={property.reins_id} />
               )}
             </div>
             {property.description && (
@@ -196,10 +192,7 @@ export default function PropertyDetailPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {assignees.map((u) => (
-                    <span
-                      key={u.id}
-                      className="badge bg-brand-50 text-brand-700"
-                    >
+                    <span key={u.id} className="badge bg-brand-50 text-brand-700">
                       {u.name}
                     </span>
                   ))}
@@ -219,10 +212,7 @@ export default function PropertyDetailPage() {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {docs.map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex items-center gap-3 py-3"
-                  >
+                  <li key={d.id} className="flex items-center gap-3 py-3">
                     <FileText className="w-5 h-5 text-gray-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-gray-900 truncate">
@@ -232,31 +222,18 @@ export default function PropertyDetailPage() {
                         <span>{formatBytes(d.file_size)}</span>
                         <span className="text-gray-300">·</span>
                         <span className="inline-flex items-center gap-1">
-                          <StorageProviderIcon
-                            provider={d.storage_provider}
-                            size={12}
-                          />
+                          <StorageProviderIcon provider={d.storage_provider} size={12} />
                           {STORAGE_PROVIDER_LABEL[d.storage_provider]}
                         </span>
                       </div>
                     </div>
-                    {d.external_view_url && d.storage_provider !== "bukkenlink" && (
-                      <a
-                        href={d.external_view_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-brand-600 hover:underline shrink-0"
-                        onClick={(e) => {
-                          // Demo: external URL is mock and won't actually exist
-                          e.preventDefault();
-                          alert(
-                            `本番ではここで${STORAGE_PROVIDER_LABEL[d.storage_provider]}が開きます\n${d.external_view_url}`
-                          );
-                        }}
-                      >
-                        プロバイダで開く
-                      </a>
-                    )}
+                    <button
+                      type="button"
+                      className="text-xs text-brand-600 hover:underline shrink-0 px-2"
+                      onClick={() => openDocument(d)}
+                    >
+                      開く
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -274,18 +251,13 @@ export default function PropertyDetailPage() {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {inquiries.map((i) => (
-                  <li
-                    key={i.id}
-                    className="py-3 flex items-start gap-3"
-                  >
+                  <li key={i.id} className="py-3 flex items-start gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm text-gray-900">
                           {i.company_name}
                         </span>
-                        <span
-                          className={`badge ${INQUIRY_STATUS_COLOR[i.status]}`}
-                        >
+                        <span className={"badge " + INQUIRY_STATUS_COLOR[i.status]}>
                           {INQUIRY_STATUS_LABEL[i.status]}
                         </span>
                       </div>
@@ -317,11 +289,7 @@ export default function PropertyDetailPage() {
                 value={formUrl}
                 className="input text-xs font-mono"
               />
-              <button
-                onClick={copyUrl}
-                className="btn-secondary p-2"
-                title="コピー"
-              >
+              <button onClick={copyUrl} className="btn-secondary p-2" title="コピー">
                 <Copy className="w-4 h-4" />
               </button>
             </div>
@@ -331,7 +299,7 @@ export default function PropertyDetailPage() {
                 QRコードをダウンロード
               </button>
               <a
-                href={`/form/${property.form_token}`}
+                href={"/form/" + property.form_token}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary"

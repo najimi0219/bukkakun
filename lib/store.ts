@@ -690,6 +690,8 @@ export function recordSentEmail(e: Omit<SentEmail, "id" | "sent_at">): SentEmail
   const email: SentEmail = { ...e, id: uid(), sent_at: new Date().toISOString() };
   if (cache) cache.sent_emails.push(email);
   notifyChange();
+
+  // 1) DB record
   fireAndForget(
     sb().from("sent_emails").insert({
       id: email.id,
@@ -707,6 +709,39 @@ export function recordSentEmail(e: Omit<SentEmail, "id" | "sent_at">): SentEmail
     }),
     "recordSentEmail"
   );
+
+  // 2) Real send via Resend (server-side API route).
+  //    Silently no-ops if RESEND_API_KEY is unset.
+  if (isBrowser()) {
+    fireAndForget(
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: email.to,
+          subject: email.subject,
+          body: email.body,
+          from_email: email.from_email,
+          from_display_name: email.from_display_name,
+          reply_to: email.reply_to,
+          cc: email.cc,
+        }),
+      }).then(async (res) => {
+        const json = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok || (json as { ok?: boolean }).ok === false) {
+          return {
+            error: {
+              message:
+                (json as { error?: string }).error ?? "send-email failed",
+            },
+          };
+        }
+        return { error: null };
+      }),
+      "sendEmail"
+    );
+  }
+
   return email;
 }
 

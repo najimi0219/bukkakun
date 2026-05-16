@@ -16,7 +16,8 @@
     "lucide-react": "^0.408.0",
     "qrcode": "^1.5.3",
     "recharts": "^2.12.7",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "resend": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
