@@ -308,8 +308,8 @@ export default function PropertyDetailPage() {
             <h2 className="font-semibold text-gray-900 mb-4">
               フォームURL / QRコード
             </h2>
-            <div className="flex justify-center mb-4 p-4 bg-white border border-gray-200 rounded">
-              <QrCodeImage text={formUrl} size={200} />
+            <div className="flex justify-center mb-4 p-6 bg-white border border-gray-200 rounded">
+              <QrCodeImage text={formUrl} size={280} />
             </div>
             <div className="flex items-center gap-1 mb-3">
               <input

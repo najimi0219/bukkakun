@@ -67,6 +67,8 @@ export function PropertyForm({ tenantId, property }: Props) {
   const [docs, setDocs] = useState<PropertyDocument[]>([]);
   const [connections, setConnections] = useState<StorageConnection[]>([]);
   const [activeConnId, setActiveConnId] = useState<string>("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -90,15 +92,18 @@ export function PropertyForm({ tenantId, property }: Props) {
     );
   };
 
-  const handleFiles = async (files: FileList | null, propertyId: string) => {
+  const handleFiles = async (files: FileList | File[] | null, propertyId: string) => {
     if (!files) return;
+    const list = Array.from(files);
+    if (list.length === 0) return;
     const conn = connections.find((c) => c.id === activeConnId);
     const provider = conn?.provider ?? "bukkenlink";
     const connId = conn?.id ?? null;
     const supabase = getSupabase();
 
+    setIsUploading(true);
     let uploaded = 0;
-    for (const file of Array.from(files)) {
+    for (const file of list) {
       if (file.size > 50 * 1024 * 1024) {
         toast.show(file.name + " は50MBを超えています", "error");
         continue;
@@ -144,6 +149,7 @@ export function PropertyForm({ tenantId, property }: Props) {
     }
 
     setDocs(getDocuments(propertyId));
+    setIsUploading(false);
     if (uploaded > 0) {
       toast.show(
         provider === "bukkenlink"
@@ -151,6 +157,29 @@ export function PropertyForm({ tenantId, property }: Props) {
           : uploaded + "件を " + STORAGE_PROVIDER_LABEL[provider] + " にアップロードしました"
       );
     }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) setIsDragOver(false);
+  };
+
+  const onDrop = (e: React.DragEvent, propertyId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    void handleFiles(files, propertyId);
   };
 
   const onSubmit = (e: React.FormEvent) => {
@@ -344,20 +373,7 @@ export function PropertyForm({ tenantId, property }: Props) {
 
       {isEdit && property && (
         <div className="card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">物件資料</h2>
-            <label className="btn-secondary cursor-pointer">
-              <Upload className="w-4 h-4" />
-              <span>アップロード</span>
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFiles(e.target.files, property.id)}
-                accept=".pdf,image/*"
-              />
-            </label>
-          </div>
+          <h2 className="font-semibold text-gray-900">物件資料</h2>
 
           {connections.length > 0 ? (
             <div>
@@ -419,14 +435,55 @@ export function PropertyForm({ tenantId, property }: Props) {
             </div>
           )}
 
-          <p className="text-xs text-gray-500">
-            最大50MB/ファイル、合計500MB/物件まで。PDF・画像対応。
-          </p>
-          {docs.length === 0 ? (
-            <div className="text-sm text-gray-500 py-4 text-center border border-dashed border-gray-300 rounded">
-              まだ資料がアップロードされていません
-            </div>
-          ) : (
+          {/* Drag & Drop zone */}
+          <label
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={(e) => onDrop(e, property.id)}
+            className={
+              "block cursor-pointer rounded-lg border-2 border-dashed transition-colors px-6 py-10 text-center " +
+              (isDragOver
+                ? "border-brand-500 bg-brand-50"
+                : isUploading
+                  ? "border-brand-300 bg-brand-50/40"
+                  : "border-gray-300 bg-gray-50/50 hover:border-brand-400 hover:bg-brand-50/30")
+            }
+          >
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files, property.id)}
+              accept=".pdf,image/*"
+              disabled={isUploading}
+            />
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2 text-brand-700">
+                <span className="inline-block w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium">アップロード中…</span>
+              </div>
+            ) : isDragOver ? (
+              <div className="flex flex-col items-center gap-2 text-brand-700">
+                <Upload className="w-10 h-10" />
+                <span className="text-base font-medium">ここにドロップ</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-gray-600">
+                <Upload className="w-8 h-8 text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">
+                  ファイルをドラッグ&ドロップ
+                </span>
+                <span className="text-xs text-gray-500">
+                  または<span className="text-brand-600 underline">クリックして選択</span>
+                </span>
+                <span className="text-[11px] text-gray-400 mt-1">
+                  PDF・画像 / 最大50MB/ファイル
+                </span>
+              </div>
+            )}
+          </label>
+
+          {docs.length > 0 && (
             <ul className="divide-y divide-gray-100 border border-gray-200 rounded">
               {docs.map((d) => (
                 <li
