@@ -72,4 +72,17 @@ export async function POST(req: NextRequest) {
       cc: body.cc && body.cc.length > 0 ? body.cc : undefined,
       replyTo: body.reply_to ?? undefined,
       subject: body.subject,
-      
+      text: body.body,
+    });
+    if (result.error) {
+      return NextResponse.json(
+        { ok: false, error: result.error.message ?? "Resend error" },
+        { status: 502 }
+      );
+    }
+    return NextResponse.json({ ok: true, id: result.data?.id ?? null });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
+}
