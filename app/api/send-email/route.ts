@@ -48,14 +48,21 @@ export async function POST(req: NextRequest) {
   }
 
   // Build the From header.
-  // - If the email_send_settings explicitly gave a from_email (custom_domain mode), use it.
-  // - Otherwise fall back to RESEND_DEFAULT_FROM (typically onboarding@resend.dev).
+  // - If the email_send_settings explicitly gave a from_email on a real custom
+  //   domain (e.g. tenant verified their own domain on Resend), use it.
+  // - The form page hard-codes "no-reply@bukkenlink.com" as a relay placeholder
+  //   when the tenant has NOT set up custom_domain. That domain isn't verified
+  //   on Resend, so trying to send from it will 403. Treat it (and any
+  //   bukkenlink.com address) as "no custom domain" and fall back to
+  //   RESEND_DEFAULT_FROM (our verified Resend domain).
   const fromAddress = body.from_email ?? null;
-  const fromHeader = fromAddress
-    ? body.from_display_name
+  const isPlaceholder =
+    !fromAddress || fromAddress.toLowerCase().endsWith("@bukkenlink.com");
+  const fromHeader = isPlaceholder
+    ? defaultFrom
+    : body.from_display_name
       ? `${body.from_display_name} <${fromAddress}>`
-      : fromAddress
-    : defaultFrom;
+      : fromAddress;
 
   const resend = new Resend(apiKey);
   try {
@@ -65,17 +72,4 @@ export async function POST(req: NextRequest) {
       cc: body.cc && body.cc.length > 0 ? body.cc : undefined,
       replyTo: body.reply_to ?? undefined,
       subject: body.subject,
-      text: body.body,
-    });
-    if (result.error) {
-      return NextResponse.json(
-        { ok: false, error: result.error.message ?? "Resend error" },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json({ ok: true, id: result.data?.id ?? null });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
-  }
-}
+      
