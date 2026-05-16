@@ -7,6 +7,7 @@ import {
   deleteTemplate,
   getEmailTemplates,
   saveTemplate,
+  uid,
 } from "@/lib/store";
 import type { EmailTemplate } from "@/lib/types";
 import { useToast } from "@/components/Toast";
@@ -31,7 +32,7 @@ export default function EmailTemplatesPage() {
   const onAdd = () => {
     if (!tenant) return;
     setEditing({
-      id: "tpl-" + Math.random().toString(36).slice(2),
+      id: uid(),
       tenant_id: tenant.id,
       name: "新しいテンプレート",
       subject: "【{{物件名}}】資料ダウンロードのご案内",

@@ -23,7 +23,7 @@ const NAV = [
   { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/properties", label: "物件管理", icon: Building2 },
   { href: "/inquiries", label: "問い合わせ", icon: Inbox },
-  { href: "/inbox", label: "送信メール (デモ)", icon: Mail },
+  { href: "/inbox", label: "送信履歴", icon: Mail },
 ];
 
 const SETTINGS = [
@@ -151,9 +151,6 @@ export function Sidebar() {
               <span className="badge bg-gray-100 text-gray-700">{ROLE_LABEL[user.role]}</span>
               <span className="badge bg-brand-50 text-brand-700">{PLAN_LABEL[tenant.plan]}</span>
             </div>
-          </div>
-          <div className="px-3 py-1.5 text-[10px] text-gray-400">
-            🔓 認証バイパス中(開発モード)
           </div>
         </div>
       )}

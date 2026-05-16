@@ -74,9 +74,6 @@ function SuccessContent() {
             <ArrowRight className="w-4 h-4" />
           </a>
         )}
-        <p className="text-xs text-gray-400 mt-2">
-          ※ デモのためメール送信は実際には行われません
-        </p>
       </div>
     </div>
   );

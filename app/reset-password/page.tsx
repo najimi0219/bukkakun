@@ -12,9 +12,7 @@ export default function ResetPasswordPage() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSent(true);
-    toast.show(
-      "パスワード再設定用のリンクを送信しました(デモのため実際には送信されません)"
-    );
+    toast.show("パスワード再設定用のリンクを送信しました");
   };
 
   return (

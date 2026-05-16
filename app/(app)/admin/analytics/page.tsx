@@ -55,7 +55,6 @@ export default function AdminAnalyticsPage() {
   }, [inq]);
 
   const activeUsers = tenants.length;
-  const churnRate = 0; // demo
 
   return (
     <div className="p-8 space-y-6 max-w-6xl">
@@ -67,7 +66,7 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="card p-5">
           <div className="text-xs text-gray-500 mb-1">全体MRR</div>
           <div className="text-3xl font-bold text-gray-900">
@@ -78,12 +77,6 @@ export default function AdminAnalyticsPage() {
           <div className="text-xs text-gray-500 mb-1">アクティブテナント</div>
           <div className="text-3xl font-bold text-gray-900">
             {activeUsers}
-          </div>
-        </div>
-        <div className="card p-5">
-          <div className="text-xs text-gray-500 mb-1">解約率</div>
-          <div className="text-3xl font-bold text-gray-900">
-            {churnRate.toFixed(1)}%
           </div>
         </div>
       </div>

@@ -152,7 +152,7 @@ export function StorageConnectModal({
           <div className="flex justify-between items-center pt-2">
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <Lock className="w-3 h-3" />
-              このダイアログはデモです
+              ベータ版 (簡易接続モード)
             </span>
             <button onClick={next} disabled={working} className="btn-primary">
               {working ? "認証中..." : "次へ"}

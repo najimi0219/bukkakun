@@ -56,11 +56,40 @@ function emptyDB(): DB {
   };
 }
 
+/**
+ * Generate a v4 UUID compatible with Postgres `uuid` columns. Falls back to
+ * Node's `crypto.randomUUID` when running on the server (Next.js Route
+ * Handlers etc.) and to a manually constructed v4 UUID when neither is
+ * available (very old environments). The non-`randomUUID` fallback is
+ * deliberately RFC-4122 compliant — earlier versions returned a "uuid-..."
+ * string which violated the `uuid` column constraint and broke inserts.
+ */
 export function uid(): string {
-  if (isBrowser() && "crypto" in window && "randomUUID" in window.crypto) {
-    return window.crypto.randomUUID();
+  // Browser & modern Node both expose globalThis.crypto.randomUUID.
+  if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
   }
-  return "uuid-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  // Fallback: build a v4 UUID by hand from random bytes.
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis !== "undefined" && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return (
+    hex.slice(0, 8) +
+    "-" +
+    hex.slice(8, 12) +
+    "-" +
+    hex.slice(12, 16) +
+    "-" +
+    hex.slice(16, 20) +
+    "-" +
+    hex.slice(20, 32)
+  );
 }
 
 export function isStoreReady(): boolean {

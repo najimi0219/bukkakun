@@ -32,7 +32,7 @@ export default function AdminBillingPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="card p-5">
           <div className="text-xs text-gray-500 mb-1">MRR (月次経常収益)</div>
           <div className="text-3xl font-bold text-gray-900">
@@ -47,10 +47,6 @@ export default function AdminBillingPage() {
               / {tenants.length}
             </span>
           </div>
-        </div>
-        <div className="card p-5">
-          <div className="text-xs text-gray-500 mb-1">滞納</div>
-          <div className="text-3xl font-bold text-gray-900">0</div>
         </div>
       </div>
 
@@ -84,7 +80,7 @@ export default function AdminBillingPage() {
       <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-sm text-amber-800">
         <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
         <div>
-          本番環境ではStripeのDashboard APIと連携し、リアルタイムで決済イベント・滞納検知を行います。デモ環境ではモックデータを表示しています。
+          ベータ期間中は課金が発生しないため、上記の MRR / 有料テナント数は予測値として参照してください。Stripe 連携は正式リリース時に対応予定です。
         </div>
       </div>
     </div>

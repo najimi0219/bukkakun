@@ -159,8 +159,11 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="card p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Slack 通知</h2>
+      <div className="card p-6 space-y-4 bg-gray-50 opacity-75">
+        <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+          Slack 通知
+          <span className="badge bg-amber-100 text-amber-700 text-[10px]">準備中</span>
+        </h2>
         <div>
           <label className="label">Webhook URL</label>
           <input
@@ -170,12 +173,19 @@ export default function NotificationsPage() {
             onChange={(e) =>
               setSettings({ ...settings, slack_webhook: e.target.value })
             }
+            disabled
           />
+          <p className="text-xs text-gray-500 mt-1">
+            正式リリース後に有効化されます。設定値は事前入力できますが現時点では通知は飛びません。
+          </p>
         </div>
       </div>
 
-      <div className="card p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">LINE 通知</h2>
+      <div className="card p-6 space-y-4 bg-gray-50 opacity-75">
+        <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+          LINE 通知
+          <span className="badge bg-amber-100 text-amber-700 text-[10px]">準備中</span>
+        </h2>
         <div>
           <label className="label">LINE Notify トークン</label>
           <input
@@ -186,12 +196,16 @@ export default function NotificationsPage() {
             onChange={(e) =>
               setSettings({ ...settings, line_token: e.target.value })
             }
+            disabled
           />
         </div>
       </div>
 
-      <div className="card p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Chatwork 通知</h2>
+      <div className="card p-6 space-y-4 bg-gray-50 opacity-75">
+        <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+          Chatwork 通知
+          <span className="badge bg-amber-100 text-amber-700 text-[10px]">準備中</span>
+        </h2>
         <div>
           <label className="label">Chatwork API トークン</label>
           <input
@@ -202,6 +216,7 @@ export default function NotificationsPage() {
             onChange={(e) =>
               setSettings({ ...settings, chatwork_token: e.target.value })
             }
+            disabled
           />
         </div>
       </div>

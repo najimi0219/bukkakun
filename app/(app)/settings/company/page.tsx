@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Upload, Image as ImageIcon } from "lucide-react";
+import { Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
 import { updateTenant } from "@/lib/store";
 import { useToast } from "@/components/Toast";
+import { getSupabase, TENANT_LOGOS_BUCKET } from "@/lib/supabase";
 
 export default function CompanyPage() {
   const { tenant } = useCurrentUser();
@@ -13,7 +14,7 @@ export default function CompanyPage() {
   const [licenseNumber, setLicenseNumber] = useState("");
   const [address, setAddress] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [slug, setSlug] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (!tenant) return;
@@ -21,19 +22,42 @@ export default function CompanyPage() {
     setLicenseNumber(tenant.license_number);
     setAddress(tenant.address ?? "");
     setLogoUrl(tenant.logo_url);
-    setSlug(tenant.slug);
   }, [tenant]);
 
   const onLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (!f) return;
+    if (!f || !tenant) return;
     if (f.size > 2 * 1024 * 1024) {
       toast.show("ロゴ画像は2MB以下にしてください", "error");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setLogoUrl(reader.result as string);
-    reader.readAsDataURL(f);
+    setUploadingLogo(true);
+    try {
+      const supabase = getSupabase();
+      // Stable per-tenant path with a cache-busting query string. Using upsert
+      // means the bucket file is overwritten in place, but the URL still gets
+      // a fresh ?t=... so the browser doesn't serve a stale image.
+      const ext = (f.name.split(".").pop() ?? "png").toLowerCase();
+      const path = `tenants/${tenant.id}/logo.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(TENANT_LOGOS_BUCKET)
+        .upload(path, f, {
+          upsert: true,
+          contentType: f.type || undefined,
+        });
+      if (upErr) {
+        toast.show("ロゴのアップロードに失敗しました: " + upErr.message, "error");
+        return;
+      }
+      const { data: pub } = supabase.storage
+        .from(TENANT_LOGOS_BUCKET)
+        .getPublicUrl(path);
+      const url = pub?.publicUrl ? pub.publicUrl + "?t=" + Date.now() : null;
+      setLogoUrl(url);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = "";
+    }
   };
 
   const onSave = () => {
@@ -43,7 +67,6 @@ export default function CompanyPage() {
       license_number: licenseNumber,
       address,
       logo_url: logoUrl,
-      slug,
     });
     toast.show("会社情報を保存しました");
   };
@@ -77,16 +100,21 @@ export default function CompanyPage() {
             </div>
             <div className="flex-1">
               <label className="btn-secondary cursor-pointer inline-flex">
-                <Upload className="w-4 h-4" />
-                ロゴをアップロード
+                {uploadingLogo ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {uploadingLogo ? "アップロード中..." : "ロゴをアップロード"}
                 <input
                   type="file"
                   accept="image/*"
                   onChange={onLogoChange}
                   className="hidden"
+                  disabled={uploadingLogo}
                 />
               </label>
-              {logoUrl && (
+              {logoUrl && !uploadingLogo && (
                 <button
                   onClick={() => setLogoUrl(null)}
                   className="ml-2 text-sm text-red-600 hover:underline"
@@ -123,21 +151,6 @@ export default function CompanyPage() {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="label">URLスラッグ</label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">https://example.com/</span>
-            <input
-              className="input"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-            />
-            <span className="text-sm text-gray-500">/form/...</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Proプランではカスタムドメインも設定可能
-          </p>
         </div>
       </div>
 

@@ -17,10 +17,12 @@ import { useToast } from "@/components/Toast";
 import {
   addInquiryLog,
   getDownloadLogs,
+  getEmailSendSettings,
   getEmailTemplates,
   getInquiry,
   getInquiryLogs,
   getProperty,
+  getTenant,
   getUser,
   recordSentEmail,
   renderTemplate,
@@ -132,12 +134,30 @@ export function InquiryDetailModal({
       toast.show("件名と本文を入力してください", "error");
       return;
     }
+    // Pull tenant's email_send_settings so the manual mail uses the same From /
+    // Reply-To as auto-replies. Falls back to safe defaults if not configured.
+    const sendCfg = getEmailSendSettings(inquiry.tenant_id);
+    const tenant = getTenant(inquiry.tenant_id);
+    const fromDisplayName = sendCfg?.from_display_name ?? tenant?.name ?? tenantName;
+    const replyTo = sendCfg?.reply_to_email ?? null;
+    const mode = sendCfg?.mode ?? "relay_with_cc";
+    // custom_domain mode honors the tenant's verified From; otherwise the API
+    // route falls back to RESEND_DEFAULT_FROM.
+    const fromEmail =
+      mode === "custom_domain" && sendCfg?.from_email ? sendCfg.from_email : null;
+    const cc = mode === "relay_with_cc" ? sendCfg?.cc_emails ?? [] : [];
+
     recordSentEmail({
       tenant_id: inquiry.tenant_id,
       to: inquiry.email,
       subject: emailSubject,
       body: emailBody,
       kind: "manual",
+      from_email: fromEmail,
+      from_display_name: fromDisplayName,
+      reply_to: replyTo,
+      cc: cc.length > 0 ? cc : null,
+      send_mode: mode,
     });
     addInquiryLog({
       inquiry_id: inquiry.id,
@@ -145,7 +165,7 @@ export function InquiryDetailModal({
       action_type: "email_sent",
       content: `件名:${emailSubject}`,
     });
-    toast.show("メールを送信しました(モック)");
+    toast.show("メールを送信しました");
     setEmailSubject("");
     setEmailBody("");
     setTab("detail");
@@ -349,7 +369,7 @@ export function InquiryDetailModal({
             </button>
             <button onClick={sendEmail} className="btn-primary">
               <Send className="w-4 h-4" />
-              送信(モック)
+              送信
             </button>
           </div>
         </div>

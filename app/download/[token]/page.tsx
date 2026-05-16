@@ -82,16 +82,25 @@ export default function DownloadPage() {
         });
       if (error || !data?.signedUrl) {
         alert(
-          "この資料はデモ用のプレースホルダーで、実ファイルがありません。\n" +
-            "物件編集画面から実ファイルをアップロードするとダウンロードできます。\n\n" +
+          "現在この資料を取得できません。お手数ですが時間をおいて再度お試しください。\n\n" +
             "(" + (error?.message ?? "no signed url") + ")"
         );
         return;
       }
+      let clientIp = "";
+      try {
+        const r = await fetch("/api/client-ip", { cache: "no-store" });
+        if (r.ok) {
+          const j = (await r.json()) as { ip?: string };
+          clientIp = j.ip ?? "";
+        }
+      } catch {
+        /* ignore */
+      }
       addDownloadLog({
         inquiry_id: inquiry.id,
         document_id: doc.id,
-        ip_address: "203.0.113." + Math.floor(Math.random() * 200),
+        ip_address: clientIp,
         user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
       });
       const a = document.createElement("a");

@@ -343,23 +343,21 @@ export default function StorageSettingsPage() {
       <div className="card p-5 border-amber-200 bg-amber-50">
         <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
-          デモ環境について
+          ベータ版についてのご案内
         </h3>
         <ul className="text-sm text-amber-800 space-y-1 list-disc pl-5">
           <li>
-            実際のOAuth認証は行われず、ファイル本体は <strong>localStorage</strong>{" "}
-            に保管されます
+            外部ストレージ (Google Drive / Dropbox / OneDrive / Box / S3) との
+            正式な OAuth 連携は順次対応中です
           </li>
           <li>
-            本番環境では、各プロバイダの公式OAuthフロー(Google: Drive Picker API,
-            Dropbox: Chooser, OneDrive: File Picker, S3: STS) を使用します
+            ベータ版では、アップロードされたファイルは BukkenLink の保管領域
+            (Supabase Storage) に暗号化して保存されます
           </li>
           <li>
-            access_token / refresh_token は KMS で暗号化し、API
-            通信は短命の署名付きURL経由で行います
-          </li>
-          <li>
-            「切断」してもアップロード済みファイルのキャッシュは残ります(本番ではテナント側に残る)
+            正式リリース時には、各プロバイダの公式 OAuth フロー (Drive Picker /
+            Dropbox Chooser / OneDrive File Picker / STS) に切り替わり、
+            ファイルはテナント様自身のストレージにのみ保管されるようになります
           </li>
         </ul>
       </div>

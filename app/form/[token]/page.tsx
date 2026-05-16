@@ -9,7 +9,6 @@ import {
   Train,
   Calendar,
   JapaneseYen,
-  Shield,
 } from "lucide-react";
 import {
   createInquiry,
@@ -78,6 +77,20 @@ export default function FormPage() {
     }
     setSubmitting(true);
 
+    // Pull the real client IP from the edge. If the network call fails for
+    // any reason (offline, blocked) we still want the inquiry to go through
+    // — just record an empty string and move on.
+    let clientIp = "";
+    try {
+      const res = await fetch("/api/client-ip", { cache: "no-store" });
+      if (res.ok) {
+        const json = (await res.json()) as { ip?: string };
+        clientIp = json.ip ?? "";
+      }
+    } catch {
+      /* ignore — best-effort */
+    }
+
     const tokenExpires = new Date();
     tokenExpires.setDate(tokenExpires.getDate() + 7);
     const inquiry = createInquiry({
@@ -92,7 +105,7 @@ export default function FormPage() {
       status: "new",
       token_expires_at: tokenExpires.toISOString(),
       download_limit: 10,
-      ip_address: "203.0.113." + Math.floor(Math.random() * 200),
+      ip_address: clientIp,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
     });
 
@@ -322,20 +335,16 @@ export default function FormPage() {
               <div>
                 <span className="text-red-500">*</span>{" "}
                 <Link
-                  href="#"
+                  href="/privacy"
+                  target="_blank"
+                  rel="noreferrer"
                   className="text-brand-600 hover:underline"
-                  onClick={(e) => e.preventDefault()}
                 >
                   個人情報の取り扱い
                 </Link>
                 に同意します
               </div>
             </label>
-
-            <div className="text-xs text-gray-400 flex items-center gap-1">
-              <Shield className="w-3 h-3" />
-              このフォームはreCAPTCHA v3で保護されています
-            </div>
 
             <button
               type="submit"

@@ -39,14 +39,14 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center justify-center gap-3">
             <Link href="/signup" className="btn-primary text-base px-6 py-3">
-              無料プランで始める
+              無料で始める
             </Link>
-            <Link href="/login" className="btn-secondary text-base px-6 py-3">
-              デモアカウントでログイン
+            <Link href="/dashboard" className="btn-secondary text-base px-6 py-3">
+              ダッシュボードを開く
             </Link>
           </div>
           <p className="mt-4 text-sm text-gray-500">
-            デモ:<code className="font-mono">admin@najimi.example</code> / <code className="font-mono">password</code>
+            ベータ版・無料公開中
           </p>
         </div>
       </section>
@@ -87,6 +87,7 @@ export default function LandingPage() {
               icon={Zap}
               title="Slack/LINE/Chatwork通知"
               desc="問い合わせ受信を即座にチームに通知。メール・Slack・LINE・Chatworkに対応。"
+              comingSoon
             />
           </div>
         </div>
@@ -122,8 +123,11 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-gray-200 py-8">
-        <div className="max-w-6xl mx-auto px-6 text-center text-sm text-gray-500">
-          © 2026 BukkenLink (なじみ合同会社) — Document version 1.0
+        <div className="max-w-6xl mx-auto px-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-gray-500">
+          <span>© 2026 BukkenLink (なじみ合同会社)</span>
+          <Link href="/privacy" className="hover:text-gray-700 underline">
+            プライバシーポリシー
+          </Link>
         </div>
       </footer>
     </div>
@@ -134,13 +138,20 @@ function FeatureCard({
   icon: Icon,
   title,
   desc,
+  comingSoon,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   desc: string;
+  comingSoon?: boolean;
 }) {
   return (
-    <div className="card p-6">
+    <div className="card p-6 relative">
+      {comingSoon && (
+        <span className="absolute top-3 right-3 badge bg-amber-100 text-amber-700 text-[10px]">
+          準備中
+        </span>
+      )}
       <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center mb-4">
         <Icon className="w-5 h-5" />
       </div>

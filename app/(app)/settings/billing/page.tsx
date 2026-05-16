@@ -1,20 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Check, CreditCard, Cloud, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Cloud, ArrowRight, Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
 import {
   getDocuments,
   getInquiries,
   getProperties,
   getStorageConnections,
-  resetDB,
-  updateTenant,
 } from "@/lib/store";
-import { useRouter } from "next/navigation";
 import {
-  STORAGE_PROVIDER_COLOR,
   STORAGE_PROVIDER_LABEL,
   type StorageConnection,
 } from "@/lib/types";
@@ -27,7 +23,6 @@ import {
   type Plan,
   type Property,
 } from "@/lib/types";
-import { useToast } from "@/components/Toast";
 
 const PLANS: {
   plan: Plan;
@@ -45,7 +40,7 @@ const PLANS: {
     features: [
       "物件30件まで",
       "月300問い合わせまで",
-      "Slack/LINE/Chatwork通知",
+      "Slack/LINE/Chatwork通知 (準備中)",
       "メールテンプレート",
       "CSVエクスポート",
     ],
@@ -57,7 +52,7 @@ const PLANS: {
       "物件無制限",
       "問い合わせ無制限",
       "チームメンバー追加可",
-      "カスタムドメイン",
+      "カスタムドメイン (準備中)",
       "優先サポート",
     ],
   },
@@ -65,8 +60,6 @@ const PLANS: {
 
 export default function BillingPage() {
   const { tenant } = useCurrentUser();
-  const toast = useToast();
-  const router = useRouter();
   const [props, setProps] = useState<Property[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [conns, setConns] = useState<StorageConnection[]>([]);
@@ -109,30 +102,6 @@ export default function BillingPage() {
     return () => window.removeEventListener("bukkenlink:dbchange", sync);
   }, [tenant]);
 
-  const onSelectPlan = (plan: Plan) => {
-    if (!tenant) return;
-    if (tenant.plan === plan) return;
-    if (plan === "free") {
-      if (
-        !confirm(
-          "Freeプランへダウングレードします。物件・問い合わせの制限超過分は使用できなくなります。よろしいですか?"
-        )
-      )
-        return;
-      updateTenant(tenant.id, { plan });
-      toast.show("Freeプランに変更しました");
-    } else {
-      if (
-        !confirm(
-          `${PLAN_LABEL[plan]}プランへ変更します。\n本番環境ではStripe Checkoutが起動します。デモ環境では即時に変更されます。`
-        )
-      )
-        return;
-      updateTenant(tenant.id, { plan });
-      toast.show(`${PLAN_LABEL[plan]}プランに変更しました`);
-    }
-  };
-
   if (!tenant) return null;
 
   const limits = PLAN_LIMITS[tenant.plan];
@@ -151,6 +120,29 @@ export default function BillingPage() {
             {PLAN_LABEL[tenant.plan]}
           </span>
         </p>
+      </div>
+
+      <div className="card p-5 border-emerald-300 bg-gradient-to-r from-emerald-50 to-brand-50">
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h2 className="font-semibold text-emerald-900 mb-1">
+              ベータ版 — 全機能を無料でご利用いただけます
+            </h2>
+            <p className="text-sm text-emerald-800 leading-relaxed">
+              現在、BukkenLink はベータ版として全機能を無料で公開中です。
+              機能制限・課金は発生しません。正式リリース時にプラン体系を改めてご案内いたします。
+              フィードバックは {" "}
+              <a
+                href="mailto:info@najimi-llc.com"
+                className="underline hover:text-emerald-900"
+              >
+                info@najimi-llc.com
+              </a>{" "}
+              までお寄せください。
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -259,20 +251,16 @@ export default function BillingPage() {
         )}
       </div>
 
-      <div className="card p-6">
-        <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-brand-600" />
-          支払い方法
-        </h2>
-        <p className="text-sm text-gray-500">
-          {tenant.stripe_customer_id
-            ? "Stripeで登録済み (デモモード)"
-            : "未登録"}
-        </p>
-      </div>
-
       <div>
-        <h2 className="font-semibold text-gray-900 mb-3">プラン変更</h2>
+        <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          正式リリース後のプラン (予定)
+          <span className="badge bg-amber-100 text-amber-700 text-[10px]">
+            準備中
+          </span>
+        </h2>
+        <p className="text-xs text-gray-500 mb-3">
+          ベータ期間中はプラン変更はできません。下記は正式リリース時の予定価格です。
+        </p>
         <div className="grid md:grid-cols-3 gap-4">
           {PLANS.map((p) => (
             <div
@@ -301,42 +289,14 @@ export default function BillingPage() {
                 ))}
               </ul>
               <button
-                onClick={() => onSelectPlan(p.plan)}
-                disabled={p.plan === tenant.plan}
-                className={
-                  p.plan === tenant.plan ? "btn-secondary w-full" : "btn-primary w-full"
-                }
+                disabled
+                className="btn-secondary w-full cursor-not-allowed"
               >
-                {p.plan === tenant.plan ? "ご利用中" : "このプランに変更"}
+                {p.plan === tenant.plan ? "ご利用中" : "ベータ期間中"}
               </button>
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="card p-6">
-        <h2 className="font-semibold text-gray-900 mb-3">請求履歴</h2>
-        <div className="text-sm text-gray-500">
-          請求履歴はありません(デモ環境)
-        </div>
-      </div>
-
-      <div className="card p-6 border-red-200">
-        <h2 className="font-semibold text-red-700 mb-2">デモデータをリセット</h2>
-        <p className="text-sm text-gray-600 mb-3">
-          ローカルストレージのデモデータを初期状態に戻します。すべてのテナント・物件・問い合わせが初期化されます。
-        </p>
-        <button
-          onClick={() => {
-            if (!confirm("すべてのデモデータをリセットします。よろしいですか?")) return;
-            resetDB();
-            toast.show("デモデータをリセットしました");
-            router.push("/login");
-          }}
-          className="btn-danger"
-        >
-          デモデータをリセット
-        </button>
       </div>
     </div>
   );

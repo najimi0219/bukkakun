@@ -97,7 +97,7 @@ export default function PropertyDetailPage() {
       .createSignedUrl(d.external_file_id, 300);
     if (error || !data?.signedUrl) {
       toast.show(
-        "ファイルを開けません: " + (error?.message ?? "デモ用プレースホルダー"),
+        "ファイルを開けません: " + (error?.message ?? "URLを取得できませんでした"),
         "error"
       );
       return;

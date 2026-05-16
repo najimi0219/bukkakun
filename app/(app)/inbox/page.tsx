@@ -25,9 +25,9 @@ export default function InboxPage() {
   return (
     <div className="p-8 space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">送信メール (デモ)</h1>
+        <h1 className="text-2xl font-bold text-gray-900">送信履歴</h1>
         <p className="text-sm text-gray-500 mt-1">
-          実際には送信されないモックメールの履歴を確認できます
+          自動返信・通知・手動送信したメールの履歴を確認できます
         </p>
       </div>
 

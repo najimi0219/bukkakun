@@ -9,7 +9,7 @@ import {
   type Property,
   type Tenant,
 } from "@/lib/types";
-import { formatDate, relativeTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export default function AdminTenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -47,8 +47,6 @@ export default function AdminTenantsPage() {
               <th className="px-4 py-3">物件数</th>
               <th className="px-4 py-3">問い合わせ数</th>
               <th className="px-4 py-3">登録日</th>
-              <th className="px-4 py-3">最終ログイン</th>
-              <th className="px-4 py-3 text-right">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -87,14 +85,6 @@ export default function AdminTenantsPage() {
                   <td className="px-4 py-3 text-gray-600">{inqCount}</td>
                   <td className="px-4 py-3 text-gray-600">
                     {formatDate(t.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {relativeTime(t.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button className="btn-secondary text-xs py-1 px-2">
-                      強制ログイン
-                    </button>
                   </td>
                 </tr>
               );

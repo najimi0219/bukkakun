@@ -47,9 +47,7 @@ export default function UsersPage() {
       name: inviteName,
       role: inviteRole,
     });
-    toast.show(
-      `${inviteEmail} にメンバー招待を送信しました(デモ:パスワード = password)`
-    );
+    toast.show(`${inviteEmail} にメンバー招待を送信しました`);
     setInviteEmail("");
     setInviteName("");
     setInviteRole("sales");
@@ -178,7 +176,7 @@ export default function UsersPage() {
           </div>
           <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
             <Mail className="w-3 h-3 inline mr-1" />
-            実際の本番環境では招待メールが送信されます。デモ環境では即時に追加され、初期パスワードは「password」です。
+            招待メールが指定のアドレスに送信されます (認証実装は順次対応)
           </div>
           <div className="flex justify-end gap-2">
             <button

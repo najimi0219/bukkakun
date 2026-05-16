@@ -93,7 +93,10 @@ export default function EmailSendingPage() {
         return;
       }
       setSettings(s);
-      setMode(s.mode);
+      // custom_domain mode is temporarily disabled (in development). Coerce
+      // any persisted "custom_domain" back to "relay_with_cc" so the UI is
+      // consistent and the user isn't shown the disabled-mode-only fields.
+      setMode(s.mode === "custom_domain" ? "relay_with_cc" : s.mode);
       setFromDisplayName(s.from_display_name ?? tenant.name);
       setReplyTo(s.reply_to_email);
       setCcEmails(s.cc_emails);
@@ -307,37 +310,34 @@ export default function EmailSendingPage() {
           </div>
         </label>
 
-        <label
-          className={
-            "card p-5 flex items-start gap-3 cursor-pointer transition " +
-            (mode === "custom_domain"
-              ? "ring-2 ring-brand-500 bg-brand-50/30"
-              : "hover:border-gray-300")
-          }
+        <div
+          className="card p-5 flex items-start gap-3 opacity-60 cursor-not-allowed bg-gray-50"
+          aria-disabled="true"
         >
           <input
             type="radio"
             name="mode"
-            checked={mode === "custom_domain"}
-            onChange={() => setMode("custom_domain")}
+            checked={false}
+            disabled
+            readOnly
             className="mt-1"
           />
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <AtSign className="w-4 h-4 text-brand-600" />
-              <span className="font-semibold text-gray-900">
+              <AtSign className="w-4 h-4 text-gray-400" />
+              <span className="font-semibold text-gray-700">
                 ② テナント自社ドメインから直接送信
               </span>
-              <span className="badge bg-purple-100 text-purple-700">
-                Pro 推奨
+              <span className="badge bg-amber-100 text-amber-700">
+                準備中
               </span>
             </div>
-            <p className="text-sm text-gray-600">
-              <code className="font-mono text-xs">no-reply@najimi-llc.com</code>{" "}
-              のように御社のドメインから送信します。DNS レコードの追加が必要ですが、業者からは「御社からのメール」として届きます。
+            <p className="text-sm text-gray-500">
+              <code className="font-mono text-xs">no-reply@お客様のドメイン</code>{" "}
+              から送信します。DNS レコード設定後に検証する機能は現在準備中です。正式リリースまでは ① のモードをご利用ください。
             </p>
           </div>
-        </label>
+        </div>
       </div>
 
       {/* Common: display name + Reply-To */}
