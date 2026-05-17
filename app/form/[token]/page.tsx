@@ -64,7 +64,7 @@ export default function FormPage() {
     };
   }, [params.token]);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!property || !tenant) return;
     if (!agreed) {
