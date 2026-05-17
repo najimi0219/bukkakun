@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X, FileText, Cloud, AlertCircle } from "lucide-react";
+import { Upload, X, FileText, Cloud, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { hasOcrAccess, OCR_BADGE_LABEL } from "@/lib/featureFlags";
+import { useCurrentUser } from "@/lib/auth";
 import {
   addDocument,
   createProperty,
