@@ -257,6 +257,7 @@ async function fetchAll(tenantId: string): Promise<DB> {
     download_limit: i.download_limit,
     ip_address: i.ip_address ?? "",
     user_agent: i.user_agent ?? "",
+    business_card_url: i.business_card_url ?? null,
     created_at: i.created_at,
   }));
 

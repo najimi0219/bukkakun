@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Building2,
@@ -9,7 +9,12 @@ import {
   Train,
   Calendar,
   JapaneseYen,
+  Upload,
+  X,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react";
+import { getSupabase, BUSINESS_CARDS_BUCKET } from "@/lib/supabase";
 import {
   createInquiry,
   getDefaultTemplate,
@@ -41,13 +46,41 @@ export default function FormPage() {
   const [loading, setLoading] = useState(true);
 
   const [companyName, setCompanyName] = useState("");
-  const [licenseNumber, setLicenseNumber] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // 名刺画像: 任意。ファイル選択 / D&D / スマホは撮影もOK。
+  const [cardFile, setCardFile] = useState<File | null>(null);
+  const [cardPreview, setCardPreview] = useState<string | null>(null);
+  const [isCardDragOver, setIsCardDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const pickCard = (file: File | undefined | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.show("名刺画像は5MB以下にしてください", "error");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.show("画像ファイルを選択してください", "error");
+      return;
+    }
+    setCardFile(file);
+    setCardPreview(URL.createObjectURL(file));
+  };
+
+  const removeCard = () => {
+    setCardFile(null);
+    if (cardPreview) URL.revokeObjectURL(cardPreview);
+    setCardPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,13 +138,51 @@ export default function FormPage() {
       /* ignore — best-effort */
     }
 
+    // Upload business card to the tenant-scoped storage path first (if any).
+    // The card is logically the *tenant\'s* data, not the operator\'s — so we
+    // path-scope it per tenant. The bucket is private; the tenant admin views
+    // it via signed URL from /inquiries.
+    let cardPath: string | null = null;
+    if (cardFile) {
+      try {
+        const supabase = getSupabase();
+        const ext = (cardFile.name.split(".").pop() ?? "jpg").toLowerCase();
+        const folder = crypto.randomUUID();
+        const path = `tenants/${tenant.id}/inquiries/${folder}/card.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from(BUSINESS_CARDS_BUCKET)
+          .upload(path, cardFile, {
+            upsert: false,
+            contentType: cardFile.type || undefined,
+          });
+        if (upErr) {
+          toast.show(
+            "名刺画像のアップロードに失敗しました: " + upErr.message,
+            "error"
+          );
+          setSubmitting(false);
+          return;
+        }
+        cardPath = path;
+      } catch (err) {
+        toast.show(
+          "名刺画像の送信に失敗しました: " +
+            (err instanceof Error ? err.message : String(err)),
+          "error"
+        );
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const tokenExpires = new Date();
     tokenExpires.setDate(tokenExpires.getDate() + 7);
     const inquiry = createInquiry({
       tenant_id: tenant.id,
       property_id: property.id,
       company_name: companyName,
-      license_number: licenseNumber,
+      // 宅建業免許番号 はフォームから削除した。空文字で保存して後方互換を保つ。
+      license_number: "",
       contact_name: contactName,
       phone,
       email,
@@ -121,6 +192,7 @@ export default function FormPage() {
       download_limit: 10,
       ip_address: clientIp,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+      business_card_url: cardPath,
     });
 
     const sendCfg = getEmailSendSettings(tenant.id);
@@ -277,18 +349,6 @@ export default function FormPage() {
                 required
               />
             </div>
-            <div>
-              <label className="label">
-                宅建業免許番号 <span className="text-red-500">*</span>
-              </label>
-              <input
-                className="input"
-                placeholder="例:東京都知事(○) 第○○○号"
-                value={licenseNumber}
-                onChange={(e) => setLicenseNumber(e.target.value)}
-                required
-              />
-            </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">
@@ -337,6 +397,89 @@ export default function FormPage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
+            </div>
+
+            <div>
+              <label className="label">名刺画像(任意)</label>
+              {cardPreview ? (
+                <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cardPreview}
+                    alt="名刺プレビュー"
+                    className="rounded border border-gray-200 max-h-44 object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeCard}
+                    className="absolute -top-2 -right-2 bg-white border border-gray-300 rounded-full p-1 shadow hover:bg-gray-50"
+                    aria-label="削除"
+                  >
+                    <X className="w-3.5 h-3.5 text-gray-600" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsCardDragOver(true);
+                  }}
+                  onDragLeave={() => setIsCardDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsCardDragOver(false);
+                    pickCard(e.dataTransfer.files?.[0]);
+                  }}
+                  className={
+                    "rounded border-2 border-dashed p-4 text-center text-sm transition " +
+                    (isCardDragOver
+                      ? "border-brand-500 bg-brand-50"
+                      : "border-gray-300 hover:border-gray-400 bg-gray-50")
+                  }
+                >
+                  <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                  <div className="text-gray-600 mb-3">
+                    ドラッグ&ドロップ または
+                  </div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-secondary text-xs"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      ファイル選択
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="btn-secondary text-xs sm:hidden"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      撮影
+                    </button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => pickCard(e.target.files?.[0])}
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    /* @ts-expect-error: capture is a valid HTML attribute on mobile */
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => pickCard(e.target.files?.[0])}
+                  />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                5MB以下のJPG / PNG / WEBP / HEIC。スマホは撮影もできます。
+              </p>
             </div>
 
             <label className="flex items-start gap-3 p-3 rounded bg-gray-50 text-sm cursor-pointer">

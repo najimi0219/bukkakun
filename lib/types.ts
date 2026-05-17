@@ -54,6 +54,8 @@ export interface Tenant {
   plan: Plan;
   stripe_customer_id: string | null;
   address?: string;
+  phone?: string | null;
+  business_card_url?: string | null;
   created_at: string;
 }
 
@@ -132,6 +134,7 @@ export interface Inquiry {
   download_limit: number;
   ip_address: string;
   user_agent: string;
+  business_card_url?: string | null;
   created_at: string;
 }
 

@@ -7,7 +7,9 @@ interface SignupBody {
   company_name?: string;
   contact_name?: string;
   email?: string;
+  phone?: string;
   license_number?: string;
+  business_card_url?: string;
 }
 
 /**
@@ -42,7 +44,9 @@ export async function POST(req: NextRequest) {
   const companyName = (body.company_name ?? "").trim();
   const contactName = (body.contact_name ?? "").trim();
   const email = (body.email ?? "").trim().toLowerCase();
+  const phone = (body.phone ?? "").trim();
   const licenseNumber = (body.license_number ?? "").trim();
+  const businessCardUrl = (body.business_card_url ?? "").trim();
 
   if (!companyName) {
     return NextResponse.json(
@@ -105,6 +109,8 @@ export async function POST(req: NextRequest) {
       slug,
       license_number: licenseNumber || "未設定",
       plan: "free",
+      phone: phone || null,
+      business_card_url: businessCardUrl || null,
     })
     .select("id")
     .single();

@@ -43,7 +43,6 @@ export default function SignupPage() {
       }
       setLocalSession(json.tenant_id, json.user_id);
       toast.show(`${companyName} のアカウントを作成しました`);
-      // Hard reload so the auth bypass / store cache pick up the new tenant.
       window.location.href = "/dashboard";
     } catch (err) {
       toast.show(
@@ -121,6 +120,7 @@ export default function SignupPage() {
               問い合わせ通知の宛先 / 自動返信メールの Reply-To に設定されます
             </p>
           </div>
+
           <button
             type="submit"
             disabled={submitting}

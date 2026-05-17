@@ -41,3 +41,4 @@ export const DEV_TENANT_ID =
 
 export const PROPERTY_DOCS_BUCKET = "property-documents";
 export const TENANT_LOGOS_BUCKET = "tenant-logos";
+export const BUSINESS_CARDS_BUCKET = "business-cards";
