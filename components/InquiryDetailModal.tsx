@@ -11,7 +11,7 @@ import {
   Clock,
   Download,
   MessageSquare,
-  IdCard,
+  CreditCard,
 } from "lucide-react";
 import { getSupabase, BUSINESS_CARDS_BUCKET } from "@/lib/supabase";
 import { Modal } from "@/components/Modal";
@@ -295,7 +295,7 @@ export function InquiryDetailModal({
             {inquiry.business_card_url && (
               <div className="mt-4">
                 <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                  <IdCard className="w-3 h-3" />
+                  <CreditCard className="w-3 h-3" />
                   添付された名刺
                 </div>
                 {cardSignedUrl ? (

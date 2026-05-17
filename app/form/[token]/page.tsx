@@ -470,7 +470,6 @@ export default function FormPage() {
                     ref={cameraInputRef}
                     type="file"
                     accept="image/*"
-                    /* @ts-expect-error: capture is a valid HTML attribute on mobile */
                     capture="environment"
                     className="hidden"
                     onChange={(e) => pickCard(e.target.files?.[0])}
