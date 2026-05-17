@@ -635,7 +635,7 @@ export default function FormPage() {
                   />
                 </div>
                 <div>
-                  <label className="label">ご希望方法</label>
+                  <label className="label">内見方法 (この物件で対応可能な方法)</label>
                   {(property.viewing_methods ?? []).length === 0 ? (
                     <p className="text-xs text-gray-500">
                       この物件の内見方法は元付業者にお問い合わせください。

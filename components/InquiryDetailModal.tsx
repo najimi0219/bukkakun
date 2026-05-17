@@ -303,7 +303,7 @@ export function InquiryDetailModal({
                 )}
                 {inquiry.viewing_method && (
                   <div className="text-sm text-gray-800">
-                    <span className="text-xs text-gray-500">希望方法: </span>
+                    <span className="text-xs text-gray-500">内見方法: </span>
                     {VIEWING_METHOD_LABEL[inquiry.viewing_method as keyof typeof VIEWING_METHOD_LABEL]}
                   </div>
                 )}
