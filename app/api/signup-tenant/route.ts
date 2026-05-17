@@ -109,8 +109,15 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
   if (tenantErr || !tenant) {
+    console.error("[signup-tenant] tenant insert failed:", tenantErr);
     return NextResponse.json(
-      { ok: false, error: tenantErr?.message ?? "テナント作成に失敗しました" },
+      {
+        ok: false,
+        error:
+          (tenantErr?.message ?? "テナント作成に失敗しました") +
+          (tenantErr?.code ? ` (code=${tenantErr.code})` : ""),
+        details: tenantErr,
+      },
       { status: 500 }
     );
   }
@@ -127,10 +134,17 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
   if (userErr || !user) {
+    console.error("[signup-tenant] user insert failed:", userErr);
     // Roll back the tenant we just created so we don't leak orphans.
     await supabase.from("tenants").delete().eq("id", tenant.id);
     return NextResponse.json(
-      { ok: false, error: userErr?.message ?? "ユーザー作成に失敗しました" },
+      {
+        ok: false,
+        error:
+          (userErr?.message ?? "ユーザー作成に失敗しました") +
+          (userErr?.code ? ` (code=${userErr.code})` : ""),
+        details: userErr,
+      },
       { status: 500 }
     );
   }

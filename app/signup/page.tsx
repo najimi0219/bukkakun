@@ -1,19 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { setLocalSession } from "@/lib/session";
 import { useToast } from "@/components/Toast";
 
 export default function SignupPage() {
-  const router = useRouter();
   const toast = useToast();
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
-  const [licenseNumber, setLicenseNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -32,7 +29,6 @@ export default function SignupPage() {
           company_name: companyName,
           contact_name: contactName,
           email,
-          license_number: licenseNumber,
         }),
       });
       const json = (await res.json()) as {
@@ -125,17 +121,6 @@ export default function SignupPage() {
               問い合わせ通知の宛先 / 自動返信メールの Reply-To に設定されます
             </p>
           </div>
-          <div>
-            <label className="label">宅建業免許番号</label>
-            <input
-              className="input"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
-              placeholder="東京都知事(1) 第000000号"
-            />
-            <p className="text-xs text-gray-500 mt-1">後から設定画面で変更できます</p>
-          </div>
-
           <button
             type="submit"
             disabled={submitting}
