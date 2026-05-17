@@ -40,7 +40,7 @@ import {
   INQUIRY_STATUS_COLOR,
   INQUIRY_STATUS_LABEL,
 } from "@/lib/types";
-import { formatYen, formatBytes, relativeTime } from "@/lib/format";
+import { formatYen, formatBytes, relativeTime, formatDateTime } from "@/lib/format";
 import { QrCodeImage, qrCodeDataUrl } from "@/components/QrCodeImage";
 import { StorageProviderIcon } from "@/components/StorageProviderIcon";
 import { useToast } from "@/components/Toast";
