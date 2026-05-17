@@ -18,6 +18,7 @@ import {
   Eye,
   HandCoins,
   HelpCircle,
+  Sparkles,
 } from "lucide-react";
 import { compressImage } from "@/lib/imageCompress";
 import {
@@ -36,6 +37,9 @@ import {
   PROPERTY_TYPE_LABEL,
   INQUIRY_KIND_LABEL,
   VIEWING_METHOD_LABEL,
+  AVAILABILITY_STATUS_LABEL,
+  AVAILABILITY_STATUS_COLOR,
+  type AvailabilityStatus,
   type Property,
   type Tenant,
   type InquiryKind,
@@ -117,7 +121,79 @@ export default function FormPage() {
     setCardPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
+    setOcrApplied(new Set());
   };
+
+  // ----- 名刺 OCR (Claude Haiku Vision) -----
+  // 名刺がアップされたら自動でOCRをかけて該当フィールドを埋める。
+  // 既にユーザーが入力したフィールドは上書きしない。
+  // どのフィールドがOCR起因で埋まったかは ocrApplied で覚えておき、
+  // 緑のハイライトで視覚的に区別する。
+  const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrApplied, setOcrApplied] = useState<Set<string>>(new Set());
+
+  const runOcr = async (file: File) => {
+    setOcrRunning(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      const res = await fetch("/api/ocr/business-card", {
+        method: "POST",
+        body: fd,
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        fields?: {
+          company_name: string | null;
+          contact_name: string | null;
+          phone: string | null;
+          email: string | null;
+        };
+        error?: string;
+      };
+      if (!res.ok || !json.ok || !json.fields) {
+        // OCR is a convenience layer — fail silently so the user can still
+        // hand-type. Show a low-key toast instead of an error.
+        toast.show("名刺の自動読み取りに失敗しました (手入力で送信できます)");
+        return;
+      }
+      const f = json.fields;
+      const filled = new Set<string>(ocrApplied);
+      if (f.company_name && !companyName.trim()) {
+        setCompanyName(f.company_name);
+        filled.add("companyName");
+      }
+      if (f.contact_name && !contactName.trim()) {
+        setContactName(f.contact_name);
+        filled.add("contactName");
+      }
+      if (f.phone && !phone.trim()) {
+        setPhone(f.phone);
+        filled.add("phone");
+      }
+      if (f.email && !email.trim()) {
+        setEmail(f.email);
+        filled.add("email");
+      }
+      setOcrApplied(filled);
+      if (filled.size > 0) {
+        toast.show("名刺から " + filled.size + " 項目を自動入力しました");
+      }
+    } catch (err) {
+      toast.show(
+        "名刺の自動読み取りに失敗しました: " +
+          (err instanceof Error ? err.message : String(err))
+      );
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  // Auto-run OCR whenever a new card file is selected.
+  useEffect(() => {
+    if (cardFile) void runOcr(cardFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardFile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -389,18 +465,45 @@ export default function FormPage() {
 
     const notif = getNotificationSettings(tenant.id);
     if (notif) {
+      const inquiryDetailUrl =
+        window.location.origin + "/inquiries?open=" + inquiry.id;
+      const kindLabelMap: Record<string, string> = {
+        location: "所在確認",
+        documents: "資料請求",
+        viewing: "案内希望",
+        other: "その他質問",
+        offer: "買付送付",
+      };
+      const kindLabel = kindLabelMap[kind] ?? kind;
+      const notifBody = [
+        companyName + " の " + contactName + " 様から",
+        "「" + property.title + "」へ問い合わせがありました。",
+        "",
+        "● 種別: " + kindLabel,
+        "● 担当者: " + contactName,
+        "● 電話: " + (phone || "(未入力)"),
+        "● メール: " + email,
+        kind === "viewing" && viewingPreferredAt
+          ? "● 内見希望日時: " + viewingPreferredAt
+          : "",
+        message ? "● 内容: " + message : "",
+        "",
+        "▼ 詳細を確認 / 返信 / 電話する",
+        inquiryDetailUrl,
+        "",
+        "(このメールに直接ご返信いただいても業者には届きません。上記URLからご対応ください)",
+      ]
+        .filter((line) => line !== "")
+        .join("\n");
+
       notif.email_recipients.forEach((to) => {
         recordSentEmail({
           tenant_id: tenant.id,
           to,
-          subject: "【BukkenLink】新着問い合わせ:" + property.title,
-          body:
-            companyName +
-            " の " +
-            contactName +
-            " 様から「" +
-            property.title +
-            "」へ問い合わせがありました。\n管理画面でご確認ください。",
+          subject:
+            "【BukkenLink】" + kindLabel + " - " + property.title +
+            " (" + companyName + ")",
+          body: notifBody,
           kind: "notification",
           from_email: RELAY_FROM_EMAIL,
           from_display_name: "BukkenLink",
@@ -462,15 +565,30 @@ export default function FormPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="card p-6">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="badge bg-brand-50 text-brand-700">
               {PROPERTY_TYPE_LABEL[property.property_type]}
+            </span>
+            <span
+              className={
+                "badge " +
+                AVAILABILITY_STATUS_COLOR[
+                  (property.availability_status ?? "available") as AvailabilityStatus
+                ]
+              }
+            >
+              {AVAILABILITY_STATUS_LABEL[
+                (property.availability_status ?? "available") as AvailabilityStatus
+              ]}
             </span>
             {property.reins_id && (
               <span className="text-xs text-gray-500 font-mono">{property.reins_id}</span>
             )}
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-3">{property.title}</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">{property.title}</h1>
+          <p className="text-xs text-gray-500 mb-3">
+            {formatDateTime(property.availability_updated_at ?? property.created_at)} 時点の情報
+          </p>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <Field icon={JapaneseYen} label="価格" value={formatYen(property.price)} />
             <Field
@@ -568,11 +686,29 @@ export default function FormPage() {
             <div>
               <label className="label">
                 会社名 <span className="text-red-500">*</span>
+                {ocrApplied.has("companyName") && (
+                  <span className="ml-2 text-xs text-emerald-600 inline-flex items-center gap-0.5">
+                    <Sparkles className="w-3 h-3" />
+                    自動入力
+                  </span>
+                )}
               </label>
               <input
-                className="input"
+                className={
+                  "input " +
+                  (ocrApplied.has("companyName")
+                    ? "border-emerald-400 bg-emerald-50/40"
+                    : "")
+                }
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onChange={(e) => {
+                  setCompanyName(e.target.value);
+                  if (ocrApplied.has("companyName")) {
+                    const next = new Set(ocrApplied);
+                    next.delete("companyName");
+                    setOcrApplied(next);
+                  }
+                }}
                 required
               />
             </div>
@@ -580,22 +716,58 @@ export default function FormPage() {
               <div>
                 <label className="label">
                   担当者名 <span className="text-red-500">*</span>
+                  {ocrApplied.has("contactName") && (
+                    <span className="ml-2 text-xs text-emerald-600 inline-flex items-center gap-0.5">
+                      <Sparkles className="w-3 h-3" />
+                      自動入力
+                    </span>
+                  )}
                 </label>
                 <input
-                  className="input"
+                  className={
+                    "input " +
+                    (ocrApplied.has("contactName")
+                      ? "border-emerald-400 bg-emerald-50/40"
+                      : "")
+                  }
                   value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
+                  onChange={(e) => {
+                    setContactName(e.target.value);
+                    if (ocrApplied.has("contactName")) {
+                      const next = new Set(ocrApplied);
+                      next.delete("contactName");
+                      setOcrApplied(next);
+                    }
+                  }}
                   required
                 />
               </div>
               <div>
                 <label className="label">
                   電話番号 <span className="text-red-500">*</span>
+                  {ocrApplied.has("phone") && (
+                    <span className="ml-2 text-xs text-emerald-600 inline-flex items-center gap-0.5">
+                      <Sparkles className="w-3 h-3" />
+                      自動入力
+                    </span>
+                  )}
                 </label>
                 <input
-                  className="input"
+                  className={
+                    "input " +
+                    (ocrApplied.has("phone")
+                      ? "border-emerald-400 bg-emerald-50/40"
+                      : "")
+                  }
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (ocrApplied.has("phone")) {
+                      const next = new Set(ocrApplied);
+                      next.delete("phone");
+                      setOcrApplied(next);
+                    }
+                  }}
                   required
                 />
               </div>
@@ -603,13 +775,31 @@ export default function FormPage() {
             <div>
               <label className="label">
                 メールアドレス <span className="text-red-500">*</span>
+                {ocrApplied.has("email") && (
+                  <span className="ml-2 text-xs text-emerald-600 inline-flex items-center gap-0.5">
+                    <Sparkles className="w-3 h-3" />
+                    自動入力
+                  </span>
+                )}
               </label>
               <input
                 type="email"
-                className="input"
+                className={
+                  "input " +
+                  (ocrApplied.has("email")
+                    ? "border-emerald-400 bg-emerald-50/40"
+                    : "")
+                }
                 placeholder="example@company.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (ocrApplied.has("email")) {
+                    const next = new Set(ocrApplied);
+                    next.delete("email");
+                    setOcrApplied(next);
+                  }
+                }}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -845,6 +1035,12 @@ export default function FormPage() {
               <p className="text-xs text-gray-500 mt-1">
                 5MB以下のJPG / PNG / WEBP / HEIC。スマホは撮影もできます。
               </p>
+              {ocrRunning && (
+                <p className="text-xs text-emerald-600 mt-1 inline-flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 animate-pulse" />
+                  名刺を解析中...入力欄に自動反映されます
+                </p>
+              )}
             </div>
 
             <label className="flex items-start gap-3 p-3 rounded bg-gray-50 text-sm cursor-pointer">

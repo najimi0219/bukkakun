@@ -229,6 +229,11 @@ async function fetchAll(tenantId: string): Promise<DB> {
     viewing_key_pickup_info: p.viewing_key_pickup_info ?? null,
     viewing_key_box_code: p.viewing_key_box_code ?? null,
     viewing_notes: p.viewing_notes ?? null,
+    availability_status: (p.availability_status ?? "available") as any,
+    availability_updated_at: p.availability_updated_at ?? p.created_at,
+    verification_frequency_days: p.verification_frequency_days ?? 1,
+    verification_email_enabled: p.verification_email_enabled ?? true,
+    verification_last_emailed_at: p.verification_last_emailed_at ?? null,
     created_at: p.created_at,
   }));
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutGrid,
   Table as TableIcon,
@@ -48,6 +49,20 @@ export default function InquiriesPage() {
   const [periodFilter, setPeriodFilter] = useState<"all" | "today" | "7d" | "30d">("all");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Auto-open the detail modal when arriving via the notification email link
+  // (?open=<inquiry_id>). We clean the query param off after consuming it so a
+  // browser reload doesn't keep popping the modal open.
+  const router = useRouter();
+  const search = useSearchParams();
+  useEffect(() => {
+    const open = search.get("open");
+    if (open) {
+      setDetailId(open);
+      router.replace("/inquiries");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
   const [dropTarget, setDropTarget] = useState<InquiryStatus | null>(null);
 
   useEffect(() => {

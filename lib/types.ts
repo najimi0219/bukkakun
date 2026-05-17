@@ -92,6 +92,12 @@ export interface Property {
   viewing_key_pickup_info?: string | null;
   viewing_key_box_code?: string | null;
   viewing_notes?: string | null;
+  // 販売状況 (Phase A)
+  availability_status?: AvailabilityStatus;
+  availability_updated_at?: string;
+  verification_frequency_days?: number;
+  verification_email_enabled?: boolean;
+  verification_last_emailed_at?: string | null;
   created_at: string;
 }
 
@@ -159,6 +165,27 @@ export const VIEWING_METHOD_LABEL: Record<ViewingMethod, string> = {
   key_pickup: "鍵取り",
   key_box: "キーボックス",
   attended: "立会い",
+};
+
+// 物件の販売状況 (公開/申込あり/商談中/終了)
+export type AvailabilityStatus =
+  | "available"
+  | "reserved"
+  | "negotiating"
+  | "closed";
+
+export const AVAILABILITY_STATUS_LABEL: Record<AvailabilityStatus, string> = {
+  available: "公開中",
+  reserved: "申込あり",
+  negotiating: "商談中",
+  closed: "終了",
+};
+
+export const AVAILABILITY_STATUS_COLOR: Record<AvailabilityStatus, string> = {
+  available: "bg-emerald-100 text-emerald-700",
+  reserved: "bg-amber-100 text-amber-700",
+  negotiating: "bg-sky-100 text-sky-700",
+  closed: "bg-gray-100 text-gray-600",
 };
 
 export interface Inquiry {

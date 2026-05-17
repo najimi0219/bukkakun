@@ -17,6 +17,8 @@ import {
   Calendar,
   Hash,
   Users as UsersIcon,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
 import {
@@ -24,10 +26,14 @@ import {
   getInquiries,
   getProperty,
   getUser,
+  updateProperty,
 } from "@/lib/store";
 import {
   PROPERTY_TYPE_LABEL,
   STORAGE_PROVIDER_LABEL,
+  AVAILABILITY_STATUS_LABEL,
+  AVAILABILITY_STATUS_COLOR,
+  type AvailabilityStatus,
   type Property,
   type PropertyDocument,
   type Inquiry,
@@ -119,7 +125,7 @@ export default function PropertyDetailPage() {
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span
                 className={
                   "badge " +
@@ -129,6 +135,20 @@ export default function PropertyDetailPage() {
                 }
               >
                 {property.status === "published" ? "公開中" : "下書き"}
+              </span>
+              <span
+                className={
+                  "badge " +
+                  AVAILABILITY_STATUS_COLOR[
+                    (property.availability_status ?? "available") as AvailabilityStatus
+                  ]
+                }
+              >
+                販売状況: {
+                  AVAILABILITY_STATUS_LABEL[
+                    (property.availability_status ?? "available") as AvailabilityStatus
+                  ]
+                }
               </span>
               <span className="badge bg-gray-100 text-gray-700">
                 {PROPERTY_TYPE_LABEL[property.property_type]}
@@ -199,6 +219,64 @@ export default function PropertyDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h2 className="font-semibold text-gray-900 mb-1">
+                  販売状況の更新
+                </h2>
+                <p className="text-xs text-gray-500">
+                  公開フォームには「{formatDateTime(property.availability_updated_at ?? property.created_at)} 時点で{AVAILABILITY_STATUS_LABEL[(property.availability_status ?? "available") as AvailabilityStatus]}」と表示されます。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  updateProperty(property.id, {
+                    availability_updated_at: new Date().toISOString(),
+                  });
+                  toast.show("最終確認日時を更新しました");
+                }}
+                className="btn-secondary text-sm shrink-0"
+                title="状況に変更が無くても「今この時点で同じ状況」と上書き"
+              >
+                <RefreshCw className="w-4 h-4" />
+                情報更新
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["available", "reserved", "negotiating", "closed"] as AvailabilityStatus[]).map((s) => {
+                const cur = (property.availability_status ?? "available") as AvailabilityStatus;
+                const isCurrent = cur === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      if (isCurrent) return;
+                      updateProperty(property.id, {
+                        availability_status: s,
+                        availability_updated_at: new Date().toISOString(),
+                      });
+                      toast.show(
+                        "販売状況を「" + AVAILABILITY_STATUS_LABEL[s] + "」に更新しました"
+                      );
+                    }}
+                    className={
+                      "px-3 py-1.5 rounded border text-sm " +
+                      (isCurrent
+                        ? "border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-200 cursor-default"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 cursor-pointer")
+                    }
+                  >
+                    {isCurrent && <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />}
+                    {AVAILABILITY_STATUS_LABEL[s]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="card p-6">

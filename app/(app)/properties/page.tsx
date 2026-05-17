@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, QrCode, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, QrCode, ExternalLink, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
 import { deleteProperty, getProperties } from "@/lib/store";
 import {
@@ -64,10 +64,20 @@ export default function PropertiesPage() {
             登録物件 {items.length}件 / 公開中 {items.filter((p) => p.status === "published").length}件
           </p>
         </div>
-        <Link href="/properties/new" className="btn-primary">
-          <Plus className="w-4 h-4" />
-          物件を追加
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/properties/bulk-import"
+            className="btn-secondary"
+            title="マイソク一括登録 (OCR)"
+          >
+            <Sparkles className="w-4 h-4" />
+            一括登録
+          </Link>
+          <Link href="/properties/new" className="btn-primary">
+            <Plus className="w-4 h-4" />
+            物件を追加
+          </Link>
+        </div>
       </div>
 
       <div className="card p-4 flex flex-wrap items-center gap-3">
