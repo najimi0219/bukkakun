@@ -54,15 +54,15 @@ export default function InquiriesPage() {
   // (?open=<inquiry_id>). We clean the query param off after consuming it so a
   // browser reload doesn't keep popping the modal open.
   const router = useRouter();
-  const search = useSearchParams();
+  const searchParams = useSearchParams();
   useEffect(() => {
-    const open = search.get("open");
+    const open = searchParams.get("open");
     if (open) {
       setDetailId(open);
       router.replace("/inquiries");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [searchParams]);
   const [dropTarget, setDropTarget] = useState<InquiryStatus | null>(null);
 
   useEffect(() => {
