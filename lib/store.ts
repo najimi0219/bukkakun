@@ -223,6 +223,12 @@ async function fetchAll(tenantId: string): Promise<DB> {
     status: p.status,
     form_token: p.form_token,
     assignee_ids: assigneesByProperty[p.id] ?? [],
+    show_address: p.show_address ?? true,
+    viewing_available: p.viewing_available ?? false,
+    viewing_methods: (p.viewing_methods ?? []) as any,
+    viewing_key_pickup_info: p.viewing_key_pickup_info ?? null,
+    viewing_key_box_code: p.viewing_key_box_code ?? null,
+    viewing_notes: p.viewing_notes ?? null,
     created_at: p.created_at,
   }));
 
@@ -259,6 +265,11 @@ async function fetchAll(tenantId: string): Promise<DB> {
     user_agent: i.user_agent ?? "",
     business_card_url: i.business_card_url ?? null,
     business_card_provider: i.business_card_provider ?? null,
+    kind: (i.kind ?? "documents") as any,
+    viewing_preferred_at: i.viewing_preferred_at ?? null,
+    viewing_method: (i.viewing_method ?? null) as any,
+    offer_document_url: i.offer_document_url ?? null,
+    offer_document_provider: i.offer_document_provider ?? null,
     created_at: i.created_at,
   }));
 

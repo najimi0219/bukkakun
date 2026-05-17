@@ -316,8 +316,13 @@ export default function InquiriesPage() {
                           <div className="text-xs text-gray-500 truncate mt-1">
                             {prop?.title ?? "(物件不明)"}
                           </div>
-                          <div className="text-xs text-gray-400 mt-2">
-                            {relativeTime(i.created_at)}
+                          <div className="text-xs text-gray-400 mt-2 flex items-center justify-between gap-2">
+                            <span title={formatDateTime(i.created_at)}>
+                              {relativeTime(i.created_at)}
+                            </span>
+                            <span className="text-[10px] tabular-nums">
+                              {formatDateTime(i.created_at).slice(5, 16)}
+                            </span>
                           </div>
                         </div>
                       );

@@ -85,6 +85,13 @@ export interface Property {
   status: PropertyStatus;
   form_token: string;
   assignee_ids: string[];
+  // 公開フォームでの住所表示制御 + 内見対応設定 (kind=viewing用)
+  show_address?: boolean;
+  viewing_available?: boolean;
+  viewing_methods?: ViewingMethod[];
+  viewing_key_pickup_info?: string | null;
+  viewing_key_box_code?: string | null;
+  viewing_notes?: string | null;
   created_at: string;
 }
 
@@ -123,6 +130,37 @@ export interface StorageConnection {
   last_sync_at: string;
 }
 
+export type InquiryKind =
+  | "location"
+  | "documents"
+  | "viewing"
+  | "other"
+  | "offer";
+
+export const INQUIRY_KIND_LABEL: Record<InquiryKind, string> = {
+  location: "所在確認",
+  documents: "資料請求",
+  viewing: "案内希望",
+  other: "その他の質問",
+  offer: "買付送付",
+};
+
+export const INQUIRY_KIND_COLOR: Record<InquiryKind, string> = {
+  location: "bg-sky-100 text-sky-700",
+  documents: "bg-emerald-100 text-emerald-700",
+  viewing: "bg-amber-100 text-amber-700",
+  other: "bg-gray-100 text-gray-700",
+  offer: "bg-purple-100 text-purple-700",
+};
+
+export type ViewingMethod = "key_pickup" | "key_box" | "attended";
+
+export const VIEWING_METHOD_LABEL: Record<ViewingMethod, string> = {
+  key_pickup: "鍵取り",
+  key_box: "キーボックス",
+  attended: "立会い",
+};
+
 export interface Inquiry {
   id: string;
   tenant_id: string;
@@ -142,6 +180,12 @@ export interface Inquiry {
   user_agent: string;
   business_card_url?: string | null;
   business_card_provider?: string | null;
+  // 問い合わせ種別 (5種) + 種別固有フィールド
+  kind?: InquiryKind;
+  viewing_preferred_at?: string | null;
+  viewing_method?: ViewingMethod | null;
+  offer_document_url?: string | null;
+  offer_document_provider?: string | null;
   created_at: string;
 }
 

@@ -18,11 +18,13 @@ import {
   PROPERTY_TYPE_LABEL,
   STORAGE_PROVIDER_COLOR,
   STORAGE_PROVIDER_LABEL,
+  VIEWING_METHOD_LABEL,
   type Property,
   type PropertyDocument,
   type PropertyType,
   type StorageConnection,
   type User,
+  type ViewingMethod,
 } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { formatBytes } from "@/lib/format";
@@ -63,6 +65,32 @@ export function PropertyForm({ tenantId, property }: Props) {
   const [assigneeIds, setAssigneeIds] = useState<string[]>(
     property?.assignee_ids ?? []
   );
+  // 公開設定
+  const [showAddress, setShowAddress] = useState<boolean>(
+    property?.show_address ?? true
+  );
+  // 内見対応
+  const [viewingAvailable, setViewingAvailable] = useState<boolean>(
+    property?.viewing_available ?? false
+  );
+  const [viewingMethods, setViewingMethods] = useState<ViewingMethod[]>(
+    property?.viewing_methods ?? []
+  );
+  const [viewingKeyPickupInfo, setViewingKeyPickupInfo] = useState<string>(
+    property?.viewing_key_pickup_info ?? ""
+  );
+  const [viewingKeyBoxCode, setViewingKeyBoxCode] = useState<string>(
+    property?.viewing_key_box_code ?? ""
+  );
+  const [viewingNotes, setViewingNotes] = useState<string>(
+    property?.viewing_notes ?? ""
+  );
+
+  const toggleViewingMethod = (m: ViewingMethod) => {
+    setViewingMethods((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
+    );
+  };
   const [users, setUsers] = useState<User[]>([]);
   const [docs, setDocs] = useState<PropertyDocument[]>([]);
   const [connections, setConnections] = useState<StorageConnection[]>([]);
@@ -203,6 +231,12 @@ export function PropertyForm({ tenantId, property }: Props) {
       reins_id: reinsId || null,
       status,
       assignee_ids: assigneeIds,
+      show_address: showAddress,
+      viewing_available: viewingAvailable,
+      viewing_methods: viewingMethods,
+      viewing_key_pickup_info: viewingKeyPickupInfo || null,
+      viewing_key_box_code: viewingKeyBoxCode || null,
+      viewing_notes: viewingNotes || null,
     };
 
     if (isEdit && property) {
@@ -524,6 +558,109 @@ export function PropertyForm({ tenantId, property }: Props) {
           )}
         </div>
       )}
+
+      <div className="card p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900">公開設定 / 内見対応</h2>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showAddress}
+            onChange={(e) => setShowAddress(e.target.checked)}
+            className="mt-1"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              公開フォームに正確な所在地を表示する
+            </div>
+            <div className="text-xs text-gray-500">
+              OFF にすると、フォームでは市区町村までで打ち切って表示し、所在確認の問い合わせを受けた時に正確な住所を自動返信します。
+            </div>
+          </div>
+        </label>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={viewingAvailable}
+            onChange={(e) => setViewingAvailable(e.target.checked)}
+            className="mt-1"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              「案内希望」を受け付ける
+            </div>
+            <div className="text-xs text-gray-500">
+              ON にすると、公開フォームに「案内希望」種別が選択肢として表示されます。
+            </div>
+          </div>
+        </label>
+
+        {viewingAvailable && (
+          <div className="pl-6 space-y-4 border-l-2 border-brand-100">
+            <div>
+              <label className="label">対応可能な内見方法</label>
+              <div className="flex flex-wrap gap-2">
+                {(["key_pickup", "key_box", "attended"] as ViewingMethod[]).map((m) => (
+                  <label
+                    key={m}
+                    className={
+                      "px-3 py-1.5 rounded border text-sm cursor-pointer " +
+                      (viewingMethods.includes(m)
+                        ? "border-brand-500 bg-brand-50 text-brand-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={viewingMethods.includes(m)}
+                      onChange={() => toggleViewingMethod(m)}
+                      className="hidden"
+                    />
+                    {VIEWING_METHOD_LABEL[m]}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {viewingMethods.includes("key_pickup") && (
+              <div>
+                <label className="label">鍵取り情報 (自動返信に挿入)</label>
+                <textarea
+                  className="input min-h-[60px]"
+                  placeholder="例: 弊社受付までお越しください。受付時間 平日10:00-18:00、03-1234-5678"
+                  value={viewingKeyPickupInfo}
+                  onChange={(e) => setViewingKeyPickupInfo(e.target.value)}
+                />
+              </div>
+            )}
+            {viewingMethods.includes("key_box") && (
+              <div>
+                <label className="label">キーボックス暗証番号 (自動返信に挿入)</label>
+                <input
+                  className="input font-mono"
+                  placeholder="例: 4桁の番号"
+                  value={viewingKeyBoxCode}
+                  onChange={(e) => setViewingKeyBoxCode(e.target.value)}
+                />
+                <p className="text-xs text-red-500 mt-1">
+                  ⚠ 自動返信メールにそのまま記載されます。漏洩リスクを承知の上でご設定ください。
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="label">内見時の注意事項 (任意)</label>
+              <textarea
+                className="input min-h-[60px]"
+                placeholder="例: マンション管理人へ事前連絡をお願いします"
+                value={viewingNotes}
+                onChange={(e) => setViewingNotes(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-end gap-2">
         <button

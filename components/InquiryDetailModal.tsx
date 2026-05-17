@@ -32,6 +32,9 @@ import {
 import {
   INQUIRY_STATUS_COLOR,
   INQUIRY_STATUS_LABEL,
+  INQUIRY_KIND_COLOR,
+  INQUIRY_KIND_LABEL,
+  VIEWING_METHOD_LABEL,
   type DownloadLog,
   type EmailTemplate,
   type Inquiry,
@@ -195,9 +198,16 @@ export function InquiryDetailModal({
   return (
     <Modal open={!!inquiry} onClose={onClose} size="lg">
       <div className="px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className={`badge ${INQUIRY_STATUS_COLOR[inquiry.status]}`}>
             {INQUIRY_STATUS_LABEL[inquiry.status]}
+          </span>
+          <span
+            className={`badge ${
+              INQUIRY_KIND_COLOR[(inquiry.kind ?? "documents") as keyof typeof INQUIRY_KIND_COLOR]
+            }`}
+          >
+            {INQUIRY_KIND_LABEL[(inquiry.kind ?? "documents") as keyof typeof INQUIRY_KIND_LABEL]}
           </span>
           <span className="text-xs text-gray-500">
             受信:{formatDateTime(inquiry.created_at)}
@@ -278,6 +288,45 @@ export function InquiryDetailModal({
                 value={`${formatDateTime(inquiry.token_expires_at)} (DL: ${inquiry.download_count}/${inquiry.download_limit})`}
               />
             </dl>
+            {inquiry.kind === "viewing" && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded space-y-1">
+                <div className="text-xs text-amber-900 font-semibold mb-1">
+                  内見希望
+                </div>
+                {inquiry.viewing_preferred_at && (
+                  <div className="text-sm text-gray-800">
+                    <span className="text-xs text-gray-500">希望日時: </span>
+                    <span className="whitespace-pre-wrap">
+                      {inquiry.viewing_preferred_at}
+                    </span>
+                  </div>
+                )}
+                {inquiry.viewing_method && (
+                  <div className="text-sm text-gray-800">
+                    <span className="text-xs text-gray-500">希望方法: </span>
+                    {VIEWING_METHOD_LABEL[inquiry.viewing_method as keyof typeof VIEWING_METHOD_LABEL]}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {inquiry.kind === "offer" && inquiry.offer_document_url && (
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                <div className="text-xs text-purple-900 font-semibold mb-2">
+                  添付された買付書類
+                </div>
+                <a
+                  href={"/api/offer-document/view?inquiry_id=" + encodeURIComponent(inquiry.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary inline-flex text-xs"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  買付書類を開く
+                </a>
+              </div>
+            )}
+
             {inquiry.message && (
               <div className="mt-4">
                 <div className="text-xs text-gray-500 mb-1">問い合わせ内容</div>
