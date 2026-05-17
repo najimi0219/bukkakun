@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   Star,
@@ -46,6 +47,22 @@ const PROVIDERS: StorageProvider[] = [
 export default function StorageSettingsPage() {
   const { user, tenant } = useCurrentUser();
   const toast = useToast();
+  const router = useRouter();
+  const search = useSearchParams();
+
+  // Surface OAuth callback results as toasts and then clean the URL.
+  useEffect(() => {
+    const connected = search.get("connected");
+    const err = search.get("connect_error");
+    if (connected === "gdrive") {
+      toast.show("Google Drive に接続しました");
+      router.replace("/settings/storage");
+    } else if (err) {
+      toast.show("接続に失敗しました: " + err, "error");
+      router.replace("/settings/storage");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
   const [conns, setConns] = useState<StorageConnection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [docs, setDocs] = useState<PropertyDocument[]>([]);
@@ -260,8 +277,12 @@ export default function StorageSettingsPage() {
                           mono
                         />
                         <Field
-                          label="トークン"
-                          value={c.mock_token_hint}
+                          label="認証"
+                          value={
+                            c.provider === "gdrive" && c.refresh_token
+                              ? "OAuth (Bearer)"
+                              : c.mock_token_hint
+                          }
                           mono
                         />
                         <Field
@@ -312,31 +333,53 @@ export default function StorageSettingsPage() {
       <div>
         <h2 className="font-semibold text-gray-900 mb-3">新規接続</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {PROVIDERS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setShowModal(p)}
-              className="card p-4 text-left hover:border-brand-400 hover:shadow transition-all"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <StorageProviderIcon provider={p} size={28} />
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {STORAGE_PROVIDER_LABEL[p]}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {p === "s3"
-                      ? "AWS S3 / R2 / B2 等"
-                      : "OAuth で1クリック接続"}
+          {PROVIDERS.map((p) => {
+            const isLive = p === "gdrive";
+            const onClick = () => {
+              if (isLive) {
+                // Hand off to the OAuth start route; it will redirect to
+                // Google\'s consent screen and then come back to
+                // /settings/storage?connected=gdrive.
+                window.location.href =
+                  "/api/oauth/google/start?tenant_id=" +
+                  encodeURIComponent(tenant.id);
+              } else {
+                setShowModal(p);
+              }
+            };
+            return (
+              <button
+                key={p}
+                onClick={onClick}
+                className="card p-4 text-left hover:border-brand-400 hover:shadow transition-all relative"
+              >
+                {!isLive && (
+                  <span className="absolute top-2 right-2 badge bg-amber-100 text-amber-700 text-[10px]">
+                    準備中
+                  </span>
+                )}
+                <div className="flex items-center gap-3 mb-2">
+                  <StorageProviderIcon provider={p} size={28} />
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {STORAGE_PROVIDER_LABEL[p]}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {p === "s3"
+                        ? "AWS S3 / R2 / B2 等"
+                        : isLive
+                          ? "OAuth で1クリック接続"
+                          : "(OAuth 連携は順次対応)"}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-xs text-brand-600 inline-flex items-center gap-1">
-                接続する
-                <ExternalLink className="w-3 h-3" />
-              </div>
-            </button>
-          ))}
+                <div className="text-xs text-brand-600 inline-flex items-center gap-1">
+                  {isLive ? "接続する" : "プレビュー"}
+                  <ExternalLink className="w-3 h-3" />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -14,7 +14,7 @@ import {
   Camera,
   Image as ImageIcon,
 } from "lucide-react";
-import { getSupabase, BUSINESS_CARDS_BUCKET } from "@/lib/supabase";
+import { compressImage } from "@/lib/imageCompress";
 import {
   createInquiry,
   getDefaultTemplate,
@@ -143,27 +143,44 @@ export default function FormPage() {
     // path-scope it per tenant. The bucket is private; the tenant admin views
     // it via signed URL from /inquiries.
     let cardPath: string | null = null;
+    let cardProvider: string | null = null;
     if (cardFile) {
       try {
-        const supabase = getSupabase();
-        const ext = (cardFile.name.split(".").pop() ?? "jpg").toLowerCase();
-        const folder = crypto.randomUUID();
-        const path = `tenants/${tenant.id}/inquiries/${folder}/card.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from(BUSINESS_CARDS_BUCKET)
-          .upload(path, cardFile, {
-            upsert: false,
-            contentType: cardFile.type || undefined,
-          });
-        if (upErr) {
+        // Compress on the client first (typically 8–10× smaller). Falls
+        // back to the original file if the browser can\'t decode it.
+        const optimized = await compressImage(cardFile, {
+          maxDim: 1600,
+          quality: 0.8,
+        });
+        // Hand off to the server endpoint, which routes to the tenant\'s
+        // Google Drive when connected, otherwise falls back to the
+        // Supabase business-cards bucket. We pass form_token (NOT
+        // tenant_id) so the server can verify the inquirer actually came
+        // through this property\'s form.
+        const fd = new FormData();
+        fd.append("file", optimized, optimized.name);
+        fd.append("form_token", params.token);
+        const res = await fetch("/api/upload/business-card", {
+          method: "POST",
+          body: fd,
+        });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          provider?: string;
+          path?: string;
+          error?: string;
+        };
+        if (!res.ok || !json.ok || !json.path) {
           toast.show(
-            "名刺画像のアップロードに失敗しました: " + upErr.message,
+            "名刺画像のアップロードに失敗しました: " +
+              (json.error ?? "unknown"),
             "error"
           );
           setSubmitting(false);
           return;
         }
-        cardPath = path;
+        cardPath = json.path;
+        cardProvider = json.provider ?? "bukkenlink";
       } catch (err) {
         toast.show(
           "名刺画像の送信に失敗しました: " +
@@ -193,6 +210,7 @@ export default function FormPage() {
       ip_address: clientIp,
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
       business_card_url: cardPath,
+      business_card_provider: cardProvider,
     });
 
     const sendCfg = getEmailSendSettings(tenant.id);

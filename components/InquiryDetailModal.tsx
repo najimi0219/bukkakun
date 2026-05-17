@@ -13,7 +13,6 @@ import {
   MessageSquare,
   CreditCard,
 } from "lucide-react";
-import { getSupabase, BUSINESS_CARDS_BUCKET } from "@/lib/supabase";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
 import {
@@ -63,6 +62,7 @@ export function InquiryDetailModal({
   const [downloads, setDownloads] = useState<DownloadLog[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [cardSignedUrl, setCardSignedUrl] = useState<string | null>(null);
+  const [cardDownloadUrl, setCardDownloadUrl] = useState<string | null>(null);
   const [tab, setTab] = useState<"detail" | "email" | "downloads">("detail");
   const [note, setNote] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
@@ -87,27 +87,21 @@ export function InquiryDetailModal({
     return () => window.removeEventListener("bukkenlink:dbchange", sync);
   }, [inquiryId]);
 
-  // Fetch a signed URL for the business card whenever the loaded inquiry
-  // changes. The bucket is private, so we can't render the path directly
-  // as an <img src>.
+  // The business-card bytes are served by our proxy endpoint, which
+  // (a) hides Drive credentials and (b) handles both storage providers
+  // transparently. We just point <img src> + the download link at it.
   useEffect(() => {
-    let cancelled = false;
-    setCardSignedUrl(null);
-    const cardPath = inquiry?.business_card_url;
-    if (!cardPath) return;
-    const supabase = getSupabase();
-    void supabase.storage
-      .from(BUSINESS_CARDS_BUCKET)
-      .createSignedUrl(cardPath, 600)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data?.signedUrl) return;
-        setCardSignedUrl(data.signedUrl);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [inquiry?.business_card_url]);
+    if (!inquiry?.business_card_url || !inquiry.id) {
+      setCardSignedUrl(null);
+      setCardDownloadUrl(null);
+      return;
+    }
+    // Cache-bust per-inquiry so switching between inquiries doesn't show
+    // the previous card.
+    const q = "?inquiry_id=" + encodeURIComponent(inquiry.id);
+    setCardSignedUrl("/api/business-card/view" + q);
+    setCardDownloadUrl("/api/business-card/view" + q + "&download=1");
+  }, [inquiry?.id, inquiry?.business_card_url]);
 
   const changeStatus = (next: InquiryStatus) => {
     if (!inquiry) return;
@@ -299,19 +293,33 @@ export function InquiryDetailModal({
                   添付された名刺
                 </div>
                 {cardSignedUrl ? (
-                  <a
-                    href={cardSignedUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={cardSignedUrl}
-                      alt="名刺"
-                      className="rounded border border-gray-200 max-h-48 object-contain hover:opacity-90 transition"
-                    />
-                  </a>
+                  <div className="space-y-2">
+                    <a
+                      href={cardSignedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={cardSignedUrl}
+                        alt="名刺"
+                        className="rounded border border-gray-200 max-h-48 object-contain hover:opacity-90 transition"
+                      />
+                    </a>
+                    {cardDownloadUrl && (
+                      <div>
+                        <a
+                          href={cardDownloadUrl}
+                          download
+                          className="btn-secondary inline-flex text-xs"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          名刺画像をダウンロード
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-xs text-gray-400">読み込み中...</p>
                 )}

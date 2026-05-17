@@ -258,6 +258,7 @@ async function fetchAll(tenantId: string): Promise<DB> {
     ip_address: i.ip_address ?? "",
     user_agent: i.user_agent ?? "",
     business_card_url: i.business_card_url ?? null,
+    business_card_provider: i.business_card_provider ?? null,
     created_at: i.created_at,
   }));
 
@@ -628,12 +629,54 @@ export function createInquiry(
   return inquiry;
 }
 export function updateInquiry(id: string, patch: Partial<Inquiry>): void {
+  // Look up current state BEFORE applying the patch so we can detect
+  // status transitions that should trigger side-effects (e.g. business
+  // card auto-delete when an inquiry is closed or rejected).
+  const before = cache?.inquiries.find((i) => i.id === id);
+
   if (cache) {
     const idx = cache.inquiries.findIndex((i) => i.id === id);
     if (idx >= 0) cache.inquiries[idx] = { ...cache.inquiries[idx], ...patch };
   }
   notifyChange();
   fireAndForget(sb().from("inquiries").update(patch).eq("id", id), "updateInquiry");
+
+  // Side effect: prune the inquirer\'s business card from Storage when the
+  // inquiry reaches a terminal status. Saves us paying for storage on dead
+  // leads. Only runs when the card lives in our Supabase bucket (the only
+  // option until BYO storage is wired) and the status is *moving into*
+  // closed / rejected (not already there).
+  if (!before) return;
+  const nextStatus = patch.status ?? before.status;
+  const becameTerminal =
+    (nextStatus === "closed" || nextStatus === "rejected") &&
+    before.status !== nextStatus;
+  if (!becameTerminal) return;
+  const cardPath = before.business_card_url;
+  if (!cardPath) return;
+
+  fireAndForget(
+    fetch("/api/business-card/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inquiry_id: id }),
+    }).then(async (res) => {
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: { message: json.error ?? "delete failed" } };
+      // Mirror the server-side change in our cache so the modal stops
+      // trying to render the card.
+      if (cache) {
+        const idx2 = cache.inquiries.findIndex((i) => i.id === id);
+        if (idx2 >= 0) {
+          cache.inquiries[idx2].business_card_url = null;
+          cache.inquiries[idx2].business_card_provider = null;
+        }
+      }
+      notifyChange();
+      return { error: null };
+    }),
+    "deleteBusinessCardOnTerminalStatus"
+  );
 }
 
 // Inquiry logs

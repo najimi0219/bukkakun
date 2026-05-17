@@ -113,6 +113,12 @@ export interface StorageConnection {
   status: StorageStatus;
   is_default: boolean;
   mock_token_hint: string;
+  // Real OAuth fields (populated by /api/oauth/{provider}/callback).
+  // mock_token_hint stays for legacy/mock providers still in the UI.
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: string | null;
+  scope?: string | null;
   created_at: string;
   last_sync_at: string;
 }
@@ -135,6 +141,7 @@ export interface Inquiry {
   ip_address: string;
   user_agent: string;
   business_card_url?: string | null;
+  business_card_provider?: string | null;
   created_at: string;
 }
 
