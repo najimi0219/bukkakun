@@ -18,6 +18,7 @@ import {
   getProperty,
   getTenant,
   initStore,
+  resolveTenantIdFromToken,
 } from "@/lib/store";
 import { getSupabase, PROPERTY_DOCS_BUCKET } from "@/lib/supabase";
 import {
@@ -55,7 +56,16 @@ export default function DownloadPage() {
       }
       setLoading(false);
     };
-    void initStore().then(() => sync());
+    void resolveTenantIdFromToken(params.token, "download")
+      .then((tenantId) => {
+        if (cancelled) return null;
+        if (!tenantId) {
+          setLoading(false);
+          return null;
+        }
+        return initStore(tenantId);
+      })
+      .then(() => sync());
     window.addEventListener("bukkenlink:dbchange", sync);
     return () => {
       cancelled = true;

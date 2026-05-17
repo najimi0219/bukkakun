@@ -19,6 +19,7 @@ import {
   getTenant,
   initStore,
   recordSentEmail,
+  resolveTenantIdFromToken,
   renderTemplate,
 } from "@/lib/store";
 import {
@@ -50,15 +51,28 @@ export default function FormPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void initStore().then(() => {
-      if (cancelled) return;
-      const p = getPropertyByToken(params.token);
-      if (p) {
-        setProperty(p);
-        setTenant(getTenant(p.tenant_id) ?? null);
-      }
-      setLoading(false);
-    });
+    // Public form: figure out which tenant owns this token first, then load
+    // the store under that tenant. Otherwise the cache would be populated
+    // for whatever tenant happens to be in this browser's localStorage
+    // (typically wrong / not the property's owner).
+    void resolveTenantIdFromToken(params.token, "form")
+      .then((tenantId) => {
+        if (cancelled) return null;
+        if (!tenantId) {
+          setLoading(false);
+          return null;
+        }
+        return initStore(tenantId);
+      })
+      .then(() => {
+        if (cancelled) return;
+        const p = getPropertyByToken(params.token);
+        if (p) {
+          setProperty(p);
+          setTenant(getTenant(p.tenant_id) ?? null);
+        }
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -169,7 +183,7 @@ export default function FormPage() {
     }
 
     setTimeout(() => {
-      router.push("/form/" + params.token + "/success?inq=" + inquiry.id);
+      router.push("/form/" + params.token + "/success?dl=" + inquiry.download_token);
     }, 400);
   };
 

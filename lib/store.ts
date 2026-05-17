@@ -27,6 +27,10 @@ import type {
 
 let cache: DB | null = null;
 let initPromise: Promise<DB> | null = null;
+// The tenant_id `cache` currently belongs to. We compare against this when
+// initStore is called with an explicit override (used by public form/DL
+// pages) so we know whether to invalidate and re-fetch.
+let cachedTenantId: string | null = null;
 
 const sb = () => getSupabase();
 
@@ -97,10 +101,16 @@ export function isStoreReady(): boolean {
   return !!cache;
 }
 
-export async function initStore(): Promise<DB> {
-  if (cache) return cache;
-  if (initPromise) return initPromise;
-  initPromise = fetchAll().then((db) => {
+export async function initStore(tenantIdOverride?: string): Promise<DB> {
+  const target = tenantIdOverride ?? getCurrentTenantId();
+  // If we already have a hydrated cache AND it's for the same tenant, reuse.
+  if (cache && cachedTenantId === target) return cache;
+  // If a load is in flight for the same tenant, wait on it.
+  if (initPromise && cachedTenantId === target) return initPromise;
+  // Otherwise switch tenants: drop cache and start a fresh fetch.
+  cache = null;
+  cachedTenantId = target;
+  initPromise = fetchAll(target).then((db) => {
     cache = db;
     notifyChange();
     return db;
@@ -108,9 +118,35 @@ export async function initStore(): Promise<DB> {
   return initPromise;
 }
 
-async function fetchAll(): Promise<DB> {
+/**
+ * Public-form / public-download pages don't know in advance which tenant
+ * owns the token in the URL. Hit Supabase directly (no cache, no tenant
+ * filter) to figure it out so we can hydrate the store under that tenant.
+ */
+export async function resolveTenantIdFromToken(
+  token: string,
+  kind: "form" | "download"
+): Promise<string | null> {
+  if (!token) return null;
   const c = sb();
-  const tenantId = getCurrentTenantId();
+  if (kind === "form") {
+    const { data } = await c
+      .from("properties")
+      .select("tenant_id")
+      .eq("form_token", token)
+      .maybeSingle();
+    return (data?.tenant_id as string | undefined) ?? null;
+  }
+  const { data } = await c
+    .from("inquiries")
+    .select("tenant_id")
+    .eq("download_token", token)
+    .maybeSingle();
+  return (data?.tenant_id as string | undefined) ?? null;
+}
+
+async function fetchAll(tenantId: string): Promise<DB> {
+  const c = sb();
 
   const [
     tenantsRes,

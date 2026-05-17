@@ -3,26 +3,51 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Mail, Clock, ArrowRight } from "lucide-react";
-import { getInquiry, initStore } from "@/lib/store";
+import {
+  getInquiryByToken,
+  initStore,
+  resolveTenantIdFromToken,
+} from "@/lib/store";
 import type { Inquiry } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
 function SuccessContent() {
   const params = useSearchParams();
-  const inqId = params.get("inq");
+  // New URL pattern uses ?dl=<download_token>. Fallback to ?inq=<id> just in
+  // case an older signed link is still floating around in someone's inbox.
+  const dlToken = params.get("dl");
+  const legacyInqId = params.get("inq");
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
 
   useEffect(() => {
-    if (!inqId) return;
+    if (!dlToken && !legacyInqId) return;
     let cancelled = false;
-    void initStore().then(() => {
-      if (cancelled) return;
-      setInquiry(getInquiry(inqId) ?? null);
-    });
+    if (dlToken) {
+      // Resolve the tenant from the download token so the store is hydrated
+      // for the right tenant, then look the inquiry up by token.
+      void resolveTenantIdFromToken(dlToken, "download")
+        .then((tenantId) => {
+          if (cancelled || !tenantId) return null;
+          return initStore(tenantId);
+        })
+        .then(() => {
+          if (cancelled) return;
+          setInquiry(getInquiryByToken(dlToken) ?? null);
+        });
+    } else if (legacyInqId) {
+      // Legacy path: just init the default-tenant store. Best-effort.
+      void initStore().then(() => {
+        if (cancelled) return;
+        // Lazy import to avoid widening the bundle when not needed.
+        import("@/lib/store").then(({ getInquiry }) => {
+          setInquiry(getInquiry(legacyInqId) ?? null);
+        });
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [inqId]);
+  }, [dlToken, legacyInqId]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
@@ -65,9 +90,9 @@ function SuccessContent() {
           それでも届かない場合は元付業者へ直接お問い合わせください。
         </div>
 
-        {inquiry && (
+        {(dlToken || inquiry) && (
           <a
-            href={"/download/" + inquiry.download_token}
+            href={"/download/" + (dlToken ?? inquiry?.download_token ?? "")}
             className="btn-primary mt-6 w-full"
           >
             資料DLページをそのまま開く
