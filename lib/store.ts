@@ -6,7 +6,8 @@
  * components keep working without per-call await.
  */
 
-import { getSupabase, DEV_TENANT_ID } from "./supabase";
+import { getSupabase } from "./supabase";
+import { getCurrentTenantId } from "./session";
 import type {
   DB,
   Tenant,
@@ -109,7 +110,7 @@ export async function initStore(): Promise<DB> {
 
 async function fetchAll(): Promise<DB> {
   const c = sb();
-  const tenantId = DEV_TENANT_ID;
+  const tenantId = getCurrentTenantId();
 
   const [
     tenantsRes,

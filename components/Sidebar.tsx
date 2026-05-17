@@ -15,8 +15,10 @@ import {
   ShieldCheck,
   Cloud,
   Send,
+  LogOut,
 } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
+import { clearLocalSession, hasLocalSession } from "@/lib/session";
 import { PLAN_LABEL, ROLE_LABEL } from "@/lib/types";
 
 const NAV = [
@@ -152,6 +154,20 @@ export function Sidebar() {
               <span className="badge bg-brand-50 text-brand-700">{PLAN_LABEL[tenant.plan]}</span>
             </div>
           </div>
+          {hasLocalSession() && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirm("ログアウトしますか?\n(同じブラウザからは再ログインできません。サインアップURLからは新規アカウント作成のみとなります)")) return;
+                clearLocalSession();
+                window.location.href = "/";
+              }}
+              className="w-full mt-2 inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              ログアウト
+            </button>
+          )}
         </div>
       )}
     </aside>

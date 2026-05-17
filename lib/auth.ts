@@ -7,14 +7,20 @@ import {
   initStore,
   isStoreReady,
 } from "./store";
-import { DEV_TENANT_ID, DEV_USER_ID } from "./supabase";
+import { getCurrentTenantId, getCurrentUserId } from "./session";
 import type { Tenant, User } from "./types";
 
 /**
- * Auth is currently bypassed. There is no real Supabase Auth session.
+ * "Auth" for the beta-distribution mode.
  *
- * `useCurrentUser()` resolves to the hardcoded "you" (info@najimi-llc.com)
- * after the in-memory store has been hydrated from Supabase.
+ * There is no real Supabase Auth session. Each browser picks (or creates)
+ * a tenant during /signup and the tenant_id + user_id are stashed in
+ * localStorage. `useCurrentUser()` reads those out and looks the rows up
+ * in the in-memory store (hydrated from Supabase on first mount).
+ *
+ * Falls back to the env-default IDs (seed/demo tenant) when nothing has
+ * been stored — useful while developing or when an admin wants to log
+ * in as the demo tenant.
  */
 
 export function login(
@@ -42,8 +48,8 @@ export function useCurrentUser(): {
     isStoreReady()
       ? {
           loading: false,
-          user: getUser(DEV_USER_ID) ?? null,
-          tenant: getTenant(DEV_TENANT_ID) ?? null,
+          user: getUser(getCurrentUserId()) ?? null,
+          tenant: getTenant(getCurrentTenantId()) ?? null,
         }
       : { loading: true, user: null, tenant: null }
   );
@@ -52,8 +58,8 @@ export function useCurrentUser(): {
     let cancelled = false;
     const sync = () => {
       if (cancelled) return;
-      const user = getUser(DEV_USER_ID) ?? null;
-      const tenant = getTenant(DEV_TENANT_ID) ?? null;
+      const user = getUser(getCurrentUserId()) ?? null;
+      const tenant = getTenant(getCurrentTenantId()) ?? null;
       setState({ loading: false, user, tenant });
     };
 
