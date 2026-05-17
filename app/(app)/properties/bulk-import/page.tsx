@@ -139,12 +139,11 @@ export default function BulkImportPage() {
       }
       // Sensible defaults for the unattended write.
       const PROPERTY_TYPE_VALUES: PropertyType[] = [
-        "mansion",
-        "house",
         "land",
-        "office",
-        "shop",
-        "other",
+        "house",
+        "mansion",
+        "income",
+        "business",
       ];
       const property_type: PropertyType =
         f.property_type &&

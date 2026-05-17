@@ -10,12 +10,11 @@ const MODEL = "claude-haiku-4-5-20251001";
 
 // 物件種別 enum (DB と一致させる)
 const PROPERTY_TYPES = [
-  "mansion",
-  "house",
   "land",
-  "office",
-  "shop",
-  "other",
+  "house",
+  "mansion",
+  "income",
+  "business",
 ] as const;
 
 interface PropertyOcrResult {
@@ -105,7 +104,7 @@ export async function POST(req: NextRequest) {
     "",
     "- title: 物件名/タイトル (例: 「ブランズ六本木」「丸の内ガーデンレジデンス 1203号室」)",
     `- property_type: 種別。次のいずれか1つ: ${PROPERTY_TYPES.join(", ")}`,
-    "    mansion=分譲マンション, house=戸建, land=土地, office=事務所, shop=店舗, other=その他",
+    "    land=土地, house=戸建, mansion=分譲マンション, income=収益物件, business=事業用",
     "- address: 所在地 (都道府県から番地まで、見えるところまで)",
     "- price: 価格を **円単位の整数** で。"
       + "「3,980万円」→ 39800000 / 「1億2000万円」→ 120000000。",
@@ -118,7 +117,7 @@ export async function POST(req: NextRequest) {
     "",
     "見つからない/判定不能なフィールドは null にしてください。",
     "出力は次の JSON スキーマに厳密に従ってください:",
-    '{"title": string|null, "property_type": "mansion"|"house"|"land"|"office"|"shop"|"other"|null, "address": string|null, "price": number|null, "land_area": number|null, "building_area": number|null, "built_year_month": string|null, "transport": string|null, "description": string|null, "reins_id": string|null}',
+    '{"title": string|null, "property_type": "land"|"house"|"mansion"|"income"|"business"|null, "address": string|null, "price": number|null, "land_area": number|null, "building_area": number|null, "built_year_month": string|null, "transport": string|null, "description": string|null, "reins_id": string|null}',
   ].join("\n");
 
   let res: Response;

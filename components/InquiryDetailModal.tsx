@@ -266,6 +266,43 @@ export function InquiryDetailModal({
 
       {tab === "detail" && (
         <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+          <div className="flex items-center gap-2 flex-wrap">
+            {inquiry.phone && (
+              <a
+                href={"tel:" + inquiry.phone.replace(/[^+\d]/g, "")}
+                className="btn-secondary text-sm"
+                title={"発信: " + inquiry.phone}
+              >
+                <Phone className="w-4 h-4" />
+                電話する
+              </a>
+            )}
+            {inquiry.email && (
+              <a
+                href={
+                  "mailto:" +
+                  inquiry.email +
+                  "?subject=" +
+                  encodeURIComponent("Re: " + (property?.title ?? "お問い合わせ") + " について")
+                }
+                className="btn-secondary text-sm"
+                title={"メーラーを開く: " + inquiry.email}
+              >
+                <Mail className="w-4 h-4" />
+                メーラー
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => setTab("email")}
+              className="btn-primary text-sm"
+              title="BukkenLink から直接メール送信"
+            >
+              <Send className="w-4 h-4" />
+              アプリから返信
+            </button>
+          </div>
+
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
               業者情報

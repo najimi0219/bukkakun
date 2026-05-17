@@ -19,6 +19,8 @@ import {
   STORAGE_PROVIDER_COLOR,
   STORAGE_PROVIDER_LABEL,
   VIEWING_METHOD_LABEL,
+  AVAILABILITY_STATUS_LABEL,
+  type AvailabilityStatus,
   type Property,
   type PropertyDocument,
   type PropertyType,
@@ -86,6 +88,15 @@ export function PropertyForm({ tenantId, property }: Props) {
     property?.viewing_notes ?? ""
   );
 
+  // 販売状況 (Phase A)
+  const [availabilityStatus, setAvailabilityStatus] = useState<AvailabilityStatus>(
+    property?.availability_status ?? "available"
+  );
+  const [verificationFrequencyDays, setVerificationFrequencyDays] =
+    useState<number>(property?.verification_frequency_days ?? 1);
+  const [verificationEmailEnabled, setVerificationEmailEnabled] =
+    useState<boolean>(property?.verification_email_enabled ?? true);
+
   const toggleViewingMethod = (m: ViewingMethod) => {
     setViewingMethods((prev) =>
       prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]
@@ -119,6 +130,131 @@ export function PropertyForm({ tenantId, property }: Props) {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
+
+  // ----- マイソク OCR (新規物件登録時の入力補助) -----
+  const { tenant } = useCurrentUser();
+  const ocrEnabled = hasOcrAccess(tenant);
+  const [ocrRunning, setOcrRunning] = useState(false);
+  const [ocrApplied, setOcrApplied] = useState<Set<string>>(new Set());
+  const sheetInputRef = useRef<HTMLInputElement>(null);
+
+  const runPropertySheetOcr = async (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      toast.show("マイソクは20MB以下にしてください", "error");
+      return;
+    }
+    const ok = file.type === "application/pdf" || file.type.startsWith("image/");
+    if (!ok) {
+      toast.show("PDF または画像ファイルを選択してください", "error");
+      return;
+    }
+    setOcrRunning(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      fd.append("tenant_id", tenantId);
+      const res = await fetch("/api/ocr/property-sheet", {
+        method: "POST",
+        body: fd,
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        fields?: {
+          title: string | null;
+          property_type: string | null;
+          address: string | null;
+          price: number | null;
+          land_area: number | null;
+          building_area: number | null;
+          built_year_month: string | null;
+          transport: string | null;
+          description: string | null;
+          reins_id: string | null;
+        };
+        error?: string;
+      };
+      if (!res.ok || !json.ok || !json.fields) {
+        toast.show(
+          "マイソクの自動読み取りに失敗しました: " + (json.error ?? "unknown"),
+          "error"
+        );
+        return;
+      }
+      const f = json.fields;
+      const filled = new Set<string>(ocrApplied);
+      const PROPERTY_TYPE_VALUES = [
+        "land", "house", "mansion", "income", "business",
+      ];
+      if (f.title && !title.trim()) {
+        setTitle(f.title);
+        filled.add("title");
+      }
+      if (
+        f.property_type &&
+        PROPERTY_TYPE_VALUES.includes(f.property_type)
+      ) {
+        setPropertyType(f.property_type as PropertyType);
+        filled.add("propertyType");
+      }
+      if (f.address && !address.trim()) {
+        setAddress(f.address);
+        filled.add("address");
+      }
+      if (f.price != null && !price.trim()) {
+        setPrice(String(f.price));
+        filled.add("price");
+      }
+      if (f.land_area != null && !landArea.trim()) {
+        setLandArea(String(f.land_area));
+        filled.add("landArea");
+      }
+      if (f.building_area != null && !buildingArea.trim()) {
+        setBuildingArea(String(f.building_area));
+        filled.add("buildingArea");
+      }
+      if (f.built_year_month && !builtYearMonth.trim()) {
+        setBuiltYearMonth(f.built_year_month);
+        filled.add("builtYearMonth");
+      }
+      if (f.transport && !transport.trim()) {
+        setTransport(f.transport);
+        filled.add("transport");
+      }
+      if (f.description && !description.trim()) {
+        setDescription(f.description);
+        filled.add("description");
+      }
+      if (f.reins_id && !reinsId.trim()) {
+        setReinsId(f.reins_id);
+        filled.add("reinsId");
+      }
+      setOcrApplied(filled);
+      toast.show(
+        filled.size > 0
+          ? "マイソクから " + filled.size + " 項目を自動入力しました"
+          : "マイソクから自動入力できる項目がありませんでした"
+      );
+    } catch (err) {
+      toast.show(
+        "マイソクの自動読み取りに失敗しました: " +
+          (err instanceof Error ? err.message : String(err)),
+        "error"
+      );
+    } finally {
+      setOcrRunning(false);
+    }
+  };
+
+  // Mark an OCR-filled field as "user-edited" so the green highlight goes
+  // away after manual touch.
+  const clearOcrMark = (key: string) => {
+    if (!ocrApplied.has(key)) return;
+    const next = new Set(ocrApplied);
+    next.delete(key);
+    setOcrApplied(next);
+  };
+  const ocrCls = (key: string) =>
+    ocrApplied.has(key) ? "border-emerald-400 bg-emerald-50/40" : "";
 
   const handleFiles = async (files: FileList | File[] | null, propertyId: string) => {
     if (!files) return;
@@ -237,6 +373,15 @@ export function PropertyForm({ tenantId, property }: Props) {
       viewing_key_pickup_info: viewingKeyPickupInfo || null,
       viewing_key_box_code: viewingKeyBoxCode || null,
       viewing_notes: viewingNotes || null,
+      availability_status: availabilityStatus,
+      verification_frequency_days: verificationFrequencyDays,
+      verification_email_enabled: verificationEmailEnabled,
+      // 状況が変更されたら "最終確認日時" を NOW に更新。
+      ...(property && property.availability_status !== availabilityStatus
+        ? { availability_updated_at: new Date().toISOString() }
+        : !property
+          ? { availability_updated_at: new Date().toISOString() }
+          : {}),
     };
 
     if (isEdit && property) {
@@ -252,6 +397,62 @@ export function PropertyForm({ tenantId, property }: Props) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {ocrEnabled && !isEdit && (
+        <div className="card p-5 bg-gradient-to-r from-emerald-50 to-brand-50 border-emerald-200">
+          <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-600" />
+            マイソクから自動入力
+            <span className="badge bg-amber-100 text-amber-700 text-[10px]">
+              {OCR_BADGE_LABEL}
+            </span>
+          </h2>
+          <p className="text-xs text-gray-600 mb-3">
+            販売図面 (マイソク) の PDF または画像をアップロードすると、AI が物件情報を読み取って下のフォームに自動入力します。読み取り後、内容を確認・修正の上で登録してください。
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => sheetInputRef.current?.click()}
+              disabled={ocrRunning}
+              className="btn-primary text-sm"
+            >
+              {ocrRunning ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  解析中...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  マイソクをアップロード
+                </>
+              )}
+            </button>
+            <span className="text-xs text-gray-500">
+              PDF / JPG / PNG (20MB以下)
+            </span>
+            <input
+              ref={sheetInputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void runPropertySheetOcr(f);
+                // reset so same file can be re-picked
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {ocrApplied.size > 0 && (
+            <p className="mt-3 text-xs text-emerald-700 inline-flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              {ocrApplied.size} 項目が自動入力されました (緑のハイライト)
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-gray-900">基本情報</h2>
         <div className="grid md:grid-cols-2 gap-4">
@@ -260,18 +461,21 @@ export function PropertyForm({ tenantId, property }: Props) {
               物件名/タイトル <span className="text-red-500">*</span>
             </label>
             <input
-              className="input"
+              className={"input " + ocrCls("title")}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); clearOcrMark("title"); }}
               required
             />
           </div>
           <div>
             <label className="label">物件種別</label>
             <select
-              className="input"
+              className={"input " + ocrCls("propertyType")}
               value={propertyType}
-              onChange={(e) => setPropertyType(e.target.value as PropertyType)}
+              onChange={(e) => {
+                setPropertyType(e.target.value as PropertyType);
+                clearOcrMark("propertyType");
+              }}
             >
               {Object.entries(PROPERTY_TYPE_LABEL).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -298,9 +502,9 @@ export function PropertyForm({ tenantId, property }: Props) {
               所在地 <span className="text-red-500">*</span>
             </label>
             <input
-              className="input"
+              className={"input " + ocrCls("address")}
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => { setAddress(e.target.value); clearOcrMark("address"); }}
               required
             />
           </div>
@@ -310,18 +514,18 @@ export function PropertyForm({ tenantId, property }: Props) {
             </label>
             <input
               type="number"
-              className="input"
+              className={"input " + ocrCls("price")}
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={(e) => { setPrice(e.target.value); clearOcrMark("price"); }}
               required
             />
           </div>
           <div>
             <label className="label">レインズ物件番号</label>
             <input
-              className="input"
+              className={"input " + ocrCls("reinsId")}
               value={reinsId}
-              onChange={(e) => setReinsId(e.target.value)}
+              onChange={(e) => { setReinsId(e.target.value); clearOcrMark("reinsId"); }}
               placeholder="任意"
             />
           </div>
@@ -330,9 +534,9 @@ export function PropertyForm({ tenantId, property }: Props) {
             <input
               type="number"
               step="0.01"
-              className="input"
+              className={"input " + ocrCls("landArea")}
               value={landArea}
-              onChange={(e) => setLandArea(e.target.value)}
+              onChange={(e) => { setLandArea(e.target.value); clearOcrMark("landArea"); }}
             />
           </div>
           <div>
@@ -340,35 +544,35 @@ export function PropertyForm({ tenantId, property }: Props) {
             <input
               type="number"
               step="0.01"
-              className="input"
+              className={"input " + ocrCls("buildingArea")}
               value={buildingArea}
-              onChange={(e) => setBuildingArea(e.target.value)}
+              onChange={(e) => { setBuildingArea(e.target.value); clearOcrMark("buildingArea"); }}
             />
           </div>
           <div>
             <label className="label">築年月</label>
             <input
-              className="input"
+              className={"input " + ocrCls("builtYearMonth")}
               value={builtYearMonth}
-              onChange={(e) => setBuiltYearMonth(e.target.value)}
+              onChange={(e) => { setBuiltYearMonth(e.target.value); clearOcrMark("builtYearMonth"); }}
               placeholder="2018-06"
             />
           </div>
           <div>
             <label className="label">交通</label>
             <input
-              className="input"
+              className={"input " + ocrCls("transport")}
               value={transport}
-              onChange={(e) => setTransport(e.target.value)}
+              onChange={(e) => { setTransport(e.target.value); clearOcrMark("transport"); }}
               placeholder="○○線 ○○駅 徒歩○分"
             />
           </div>
           <div className="md:col-span-2">
             <label className="label">物件概要</label>
             <textarea
-              className="input min-h-[100px]"
+              className={"input min-h-[100px] " + ocrCls("description")}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => { setDescription(e.target.value); clearOcrMark("description"); }}
             />
           </div>
         </div>
@@ -658,6 +862,73 @@ export function PropertyForm({ tenantId, property }: Props) {
                 onChange={(e) => setViewingNotes(e.target.value)}
               />
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900">販売状況</h2>
+        <p className="text-xs text-gray-500">
+          公開フォームに「○月○日時点で {AVAILABILITY_STATUS_LABEL[availabilityStatus]}」と表示されます。
+          状況が変わったらここを更新するか、定期的に届く確認メールから1クリックで更新できます。
+        </p>
+        <div>
+          <label className="label">現在の販売状況</label>
+          <div className="flex flex-wrap gap-2">
+            {(["available", "reserved", "negotiating", "closed"] as AvailabilityStatus[]).map((s) => (
+              <label
+                key={s}
+                className={
+                  "px-3 py-1.5 rounded border text-sm cursor-pointer " +
+                  (availabilityStatus === s
+                    ? "border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-200"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
+                }
+              >
+                <input
+                  type="radio"
+                  name="availability_status"
+                  checked={availabilityStatus === s}
+                  onChange={() => setAvailabilityStatus(s)}
+                  className="hidden"
+                />
+                {AVAILABILITY_STATUS_LABEL[s]}
+              </label>
+            ))}
+          </div>
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={verificationEmailEnabled}
+            onChange={(e) => setVerificationEmailEnabled(e.target.checked)}
+            className="mt-1"
+          />
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              定期的に状況確認メールを受け取る
+            </div>
+            <div className="text-xs text-gray-500">
+              メール内の4ボタン (公開 / 申込あり / 商談中 / 終了) をクリックするだけで、最終確認日時が即更新されます。
+            </div>
+          </div>
+        </label>
+        {verificationEmailEnabled && (
+          <div className="pl-6">
+            <label className="label">確認頻度</label>
+            <select
+              className="input max-w-xs"
+              value={verificationFrequencyDays}
+              onChange={(e) =>
+                setVerificationFrequencyDays(parseInt(e.target.value, 10))
+              }
+            >
+              <option value={1}>毎日</option>
+              <option value={3}>3日ごと</option>
+              <option value={7}>毎週</option>
+              <option value={14}>2週間ごと</option>
+              <option value={30}>毎月</option>
+            </select>
           </div>
         )}
       </div>
