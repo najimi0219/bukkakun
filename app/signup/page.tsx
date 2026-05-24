@@ -146,6 +146,17 @@ export default function SignupPage() {
             に同意の上ご利用ください。
           </p>
         </form>
+
+        <div className="mt-6 pt-5 border-t border-gray-200 text-center">
+          <p className="text-sm text-gray-500">既にアカウントをお持ちですか?</p>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline mt-1"
+          >
+            ログイン
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
       </div>
     </div>
   );

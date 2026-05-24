@@ -158,9 +158,9 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => {
-                if (!confirm("ログアウトしますか?\n(同じブラウザからは再ログインできません。サインアップURLからは新規アカウント作成のみとなります)")) return;
+                if (!confirm("ログアウトしますか?\nまた同じメールアドレスでログインすれば、このアカウントに戻れます。")) return;
                 clearLocalSession();
-                window.location.href = "/";
+                window.location.href = "/login";
               }}
               className="w-full mt-2 inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs text-gray-600 hover:bg-gray-100"
             >
