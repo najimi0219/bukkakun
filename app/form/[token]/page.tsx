@@ -23,7 +23,7 @@ import {
 import { compressImage } from "@/lib/imageCompress";
 import {
   createInquiry,
-  getDefaultTemplate,
+  getTemplateForKind,
   getEmailSendSettings,
   getNotificationSettings,
   getPropertyByToken,
@@ -33,6 +33,7 @@ import {
   resolveTenantIdFromToken,
   renderTemplate,
 } from "@/lib/store";
+import { DEFAULT_TEMPLATES, buildTemplateVars } from "@/lib/emailTemplates";
 import {
   PROPERTY_TYPE_LABEL,
   INQUIRY_KIND_LABEL,
@@ -381,7 +382,7 @@ export default function FormPage() {
 
     // ----- 自動返信メール (種別ごとに本文切り替え) -----
     const sendCfg = getEmailSendSettings(tenant.id);
-    const tpl = getDefaultTemplate(tenant.id);
+    const tpl = getTemplateForKind(tenant.id, kind);
     const fromDisplayName = sendCfg?.from_display_name ?? tenant.name;
     const replyTo = sendCfg?.reply_to_email ?? null;
     const mode = sendCfg?.mode ?? "relay_with_cc";
@@ -392,63 +393,47 @@ export default function FormPage() {
     const cc = mode === "relay_with_cc" ? sendCfg?.cc_emails ?? [] : [];
     const dlUrl =
       window.location.origin + "/download/" + inquiry.download_token;
-    const greeting =
-      companyName + "\n" + contactName + " 様\n\nこの度はお問い合わせありがとうございます。\n";
 
-    // Compose the body based on the inquiry kind.
-    let subject = `【${property.title}】お問い合わせを受け付けました`;
-    let body = greeting;
-    if (kind === "documents" && tpl) {
-      // Use the tenant\'s configured template for the classic 資料請求 flow.
-      const vars: Record<string, string> = {
-        会社名: companyName,
-        担当者名: contactName,
-        物件名: property.title,
-        資料URL: dlUrl,
-        有効期限: formatDateTime(inquiry.token_expires_at),
-      };
-      subject = renderTemplate(tpl.subject, vars);
-      body = renderTemplate(tpl.body, vars);
-    } else if (kind === "documents") {
-      body +=
-        `\n物件名: ${property.title}\n資料DLリンク: ${dlUrl}\n有効期限: ${formatDateTime(inquiry.token_expires_at)}\n`;
-      subject = `【${property.title}】資料DLリンクのご案内`;
-    } else if (kind === "location") {
-      body +=
-        `\n物件「${property.title}」の所在地は以下となります。\n\n${property.address}\n` +
-        (property.transport ? `\n交通: ${property.transport}\n` : "");
-      subject = `【${property.title}】所在地のご案内`;
-    } else if (kind === "viewing") {
-      const methodLabel = viewingMethod
-        ? VIEWING_METHOD_LABEL[viewingMethod as ViewingMethod]
-        : "未指定";
+    // 内見の方法・注意事項をまとめた案内情報ブロックを組み立てる。
+    let viewingInfo = "";
+    if (kind === "viewing") {
       let methodDetails = "";
       if (viewingMethod === "key_pickup" && property.viewing_key_pickup_info) {
-        methodDetails = `\n鍵取り情報: ${property.viewing_key_pickup_info}`;
+        methodDetails = `▼ 鍵のお預かり\n${property.viewing_key_pickup_info}`;
       } else if (
         viewingMethod === "key_box" &&
         property.viewing_key_box_code
       ) {
-        methodDetails = `\nキーボックス暗証番号: ${property.viewing_key_box_code}`;
+        methodDetails = `▼ キーボックス暗証番号\n${property.viewing_key_box_code}`;
       } else if (viewingMethod === "attended") {
-        methodDetails = `\n立会いを希望されました。担当者よりご連絡いたします。`;
+        methodDetails = "担当者が立ち会いのうえご案内いたします。";
       }
       const notes = property.viewing_notes
-        ? `\n\n【ご案内時の注意事項】\n${property.viewing_notes}`
+        ? `▼ ご案内時の注意事項\n${property.viewing_notes}`
         : "";
-      body +=
-        `\n物件「${property.title}」の案内希望を承りました。\n\nご希望日時: ${viewingPreferredAt}\nご希望方法: ${methodLabel}${methodDetails}${notes}\n\n内容を確認の上、追ってご連絡いたします。\n`;
-      subject = `【${property.title}】案内希望を受け付けました`;
-    } else if (kind === "offer") {
-      body +=
-        `\n物件「${property.title}」への買付書類を受領いたしました。\n担当者が内容を確認の上、追ってご連絡いたします。\n`;
-      subject = `【${property.title}】買付書類を受領いたしました`;
-    } else {
-      // other
-      body +=
-        `\n物件「${property.title}」へのお問い合わせを受け付けました。\n${message ? "\n【ご質問内容】\n" + message + "\n" : ""}\n担当者よりご連絡いたします。\n`;
-      subject = `【${property.title}】お問い合わせを受け付けました`;
+      viewingInfo = [methodDetails, notes].filter(Boolean).join("\n\n");
     }
+
+    const templateVars = buildTemplateVars({
+      companyName,
+      contactName,
+      propertyTitle: property.title,
+      docUrl: dlUrl,
+      docExpiresAt: formatDateTime(inquiry.token_expires_at),
+      address: property.address,
+      transport: property.transport || "—",
+      viewingPreferredAt: viewingPreferredAt.trim() || "未指定",
+      viewingMethodLabel: viewingMethod
+        ? VIEWING_METHOD_LABEL[viewingMethod as ViewingMethod]
+        : "未指定",
+      viewingInfo,
+      question: message.trim() || "（記載なし）",
+    });
+
+    // テンプレ未登録時 (マイグレーション前など) はコード内の既定文面を使う。
+    const activeTpl = tpl ?? DEFAULT_TEMPLATES[kind];
+    const subject = renderTemplate(activeTpl.subject, templateVars);
+    const body = renderTemplate(activeTpl.body, templateVars);
 
     recordSentEmail({
       tenant_id: tenant.id,

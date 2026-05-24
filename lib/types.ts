@@ -241,6 +241,8 @@ export interface EmailTemplate {
   subject: string;
   body: string;
   is_default: boolean;
+  // 問い合わせ種別ごとの自動返信テンプレ。null/未設定 は手動返信用のカスタムテンプレ。
+  kind?: InquiryKind | null;
 }
 
 export interface NotificationSettings {

@@ -16,6 +16,7 @@ import type {
   PropertyDocument,
   StorageConnection,
   Inquiry,
+  InquiryKind,
   InquiryLog,
   DownloadLog,
   EmailTemplate,
@@ -743,12 +744,22 @@ export function getDefaultTemplate(tenantId: string): EmailTemplate | undefined 
   const templates = getEmailTemplates(tenantId);
   return templates.find((t) => t.is_default) ?? templates[0];
 }
+/** 問い合わせ種別に対応する自動返信テンプレを返す。 */
+export function getTemplateForKind(
+  tenantId: string,
+  kind: InquiryKind
+): EmailTemplate | undefined {
+  return getEmailTemplates(tenantId).find((t) => t.kind === kind);
+}
 export function saveTemplate(t: EmailTemplate): void {
   if (cache) {
     const idx = cache.email_templates.findIndex((x) => x.id === t.id);
     if (t.is_default) {
+      // デフォルト指定は種別 (kind) 単位で一意にする。
       cache.email_templates = cache.email_templates.map((x) =>
-        x.tenant_id === t.tenant_id ? { ...x, is_default: false } : x
+        x.tenant_id === t.tenant_id && (x.kind ?? null) === (t.kind ?? null)
+          ? { ...x, is_default: false }
+          : x
       );
     }
     if (idx >= 0) cache.email_templates[idx] = t;

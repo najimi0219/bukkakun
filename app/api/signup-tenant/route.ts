@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { DEFAULT_TEMPLATES, TEMPLATE_KINDS } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
 
@@ -158,23 +159,17 @@ export async function POST(req: NextRequest) {
   // 3) Seed sane defaults so the new tenant has something to look at and the
   //    UI doesn't show empty-state warnings on first login. All best-effort
   //    — if one fails we still let signup succeed.
-  await supabase.from("email_templates").insert({
-    tenant_id: tenant.id,
-    name: "デフォルト自動返信",
-    subject: "【{{物件名}}】資料ダウンロードのご案内",
-    body: [
-      "{{会社名}}",
-      "{{担当者名}} 様",
-      "",
-      "お問い合わせありがとうございます。",
-      "下記URLより物件資料をダウンロードください。",
-      "",
-      "{{資料URL}}",
-      "",
-      "有効期限:{{有効期限}}",
-    ].join("\n"),
-    is_default: true,
-  });
+  // 問い合わせ種別ごとの自動返信テンプレを 5 種すべてシードする。
+  await supabase.from("email_templates").insert(
+    TEMPLATE_KINDS.map((k) => ({
+      tenant_id: tenant.id,
+      kind: k,
+      name: DEFAULT_TEMPLATES[k].name,
+      subject: DEFAULT_TEMPLATES[k].subject,
+      body: DEFAULT_TEMPLATES[k].body,
+      is_default: k === "documents",
+    }))
+  );
 
   await supabase.from("notification_settings").insert({
     tenant_id: tenant.id,

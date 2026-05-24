@@ -29,6 +29,7 @@ import {
   renderTemplate,
   updateInquiry,
 } from "@/lib/store";
+import { buildTemplateVars } from "@/lib/emailTemplates";
 import {
   INQUIRY_STATUS_COLOR,
   INQUIRY_STATUS_LABEL,
@@ -70,12 +71,19 @@ export function InquiryDetailModal({
   const [note, setNote] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [templateId, setTemplateId] = useState("");
 
   useEffect(() => {
     if (!inquiryId) {
       setInquiry(null);
       return;
     }
+    // 別の問い合わせを開いたら入力状態をリセット
+    setTab("detail");
+    setEmailSubject("");
+    setEmailBody("");
+    setTemplateId("");
+    setNote("");
     const sync = () => {
       const i = getInquiry(inquiryId);
       if (!i) return;
@@ -135,20 +143,25 @@ export function InquiryDetailModal({
   const applyTemplate = (tplId: string) => {
     const tpl = templates.find((t) => t.id === tplId);
     if (!tpl || !inquiry || !property) return;
-    const formUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/download/${inquiry.download_token}`
-        : `/download/${inquiry.download_token}`;
-    const vars: Record<string, string> = {
-      会社名: inquiry.company_name,
-      担当者名: inquiry.contact_name,
-      物件名: property.title,
-      資料URL: formUrl,
-      有効期限: formatDateTime(inquiry.token_expires_at),
-    };
+    setTemplateId(tplId);
+    const vars = buildModalTemplateVars(inquiry, property);
     setEmailSubject(renderTemplate(tpl.subject, vars));
     setEmailBody(renderTemplate(tpl.body, vars));
   };
+
+  // メールタブを開いたら問い合わせ種別に対応するテンプレを自動で適用する。
+  useEffect(() => {
+    if (tab !== "email" || !inquiry || !property) return;
+    if (emailSubject || emailBody) return;
+    const kindTpl = templates.find(
+      (t) => t.kind === (inquiry.kind ?? "documents")
+    );
+    if (!kindTpl) return;
+    const vars = buildModalTemplateVars(inquiry, property);
+    setTemplateId(kindTpl.id);
+    setEmailSubject(renderTemplate(kindTpl.subject, vars));
+    setEmailBody(renderTemplate(kindTpl.body, vars));
+  }, [tab, inquiry, property, templates, emailSubject, emailBody]);
 
   const sendEmail = () => {
     if (!inquiry) return;
@@ -190,6 +203,7 @@ export function InquiryDetailModal({
     toast.show("メールを送信しました");
     setEmailSubject("");
     setEmailBody("");
+    setTemplateId("");
     setTab("detail");
   };
 
@@ -471,16 +485,17 @@ export function InquiryDetailModal({
             <label className="label">テンプレートから選択</label>
             <select
               className="input"
+              value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
-              defaultValue=""
             >
               <option value="" disabled>
                 テンプレートを選択...
               </option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
-                  {t.is_default ? " (デフォルト)" : ""}
+                  {t.kind
+                    ? `${INQUIRY_KIND_LABEL[t.kind]}：${t.name}`
+                    : t.name}
                 </option>
               ))}
             </select>
@@ -561,6 +576,47 @@ export function InquiryDetailModal({
       )}
     </Modal>
   );
+}
+
+/**
+ * テンプレ文面に差し込む変数を、問い合わせ・物件の情報から組み立てる。
+ * 種別を問わず全変数を返すので、どのテンプレでもそのまま描画できる。
+ */
+function buildModalTemplateVars(
+  inq: Inquiry,
+  prop: Property
+): Record<string, string> {
+  const formUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/download/${inq.download_token}`
+      : `/download/${inq.download_token}`;
+  let methodDetails = "";
+  const vm = inq.viewing_method;
+  if (vm === "key_pickup" && prop.viewing_key_pickup_info) {
+    methodDetails = `▼ 鍵のお預かり\n${prop.viewing_key_pickup_info}`;
+  } else if (vm === "key_box" && prop.viewing_key_box_code) {
+    methodDetails = `▼ キーボックス暗証番号\n${prop.viewing_key_box_code}`;
+  } else if (vm === "attended") {
+    methodDetails = "担当者が立ち会いのうえご案内いたします。";
+  }
+  const notes = prop.viewing_notes
+    ? `▼ ご案内時の注意事項\n${prop.viewing_notes}`
+    : "";
+  return buildTemplateVars({
+    companyName: inq.company_name,
+    contactName: inq.contact_name,
+    propertyTitle: prop.title,
+    docUrl: formUrl,
+    docExpiresAt: formatDateTime(inq.token_expires_at),
+    address: prop.address,
+    transport: prop.transport || "—",
+    viewingPreferredAt: inq.viewing_preferred_at?.trim() || "未指定",
+    viewingMethodLabel: vm
+      ? VIEWING_METHOD_LABEL[vm as keyof typeof VIEWING_METHOD_LABEL]
+      : "未指定",
+    viewingInfo: [methodDetails, notes].filter(Boolean).join("\n\n"),
+    question: inq.message?.trim() || "（記載なし）",
+  });
 }
 
 function Item({
