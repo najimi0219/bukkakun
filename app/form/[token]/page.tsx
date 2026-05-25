@@ -71,7 +71,7 @@ export default function FormPage() {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // 名刺画像: 任意。ファイル選択 / D&D / スマホは撮影もOK。
+  // 名刺画像: 必須。ファイル選択 / D&D / スマホは撮影もOK。
   const [cardFile, setCardFile] = useState<File | null>(null);
   const [cardPreview, setCardPreview] = useState<string | null>(null);
   const [isCardDragOver, setIsCardDragOver] = useState(false);
@@ -234,6 +234,11 @@ export default function FormPage() {
     }
     if (!/^.+@.+\..+$/.test(email)) {
       toast.show("正しいメールアドレスを入力してください", "error");
+      return;
+    }
+    // 名刺画像は全種別で必須 (業者本人確認のため)
+    if (!cardFile) {
+      toast.show("名刺画像を添付してください", "error");
       return;
     }
     // 種別ごとの簡易バリデーション
@@ -941,7 +946,9 @@ export default function FormPage() {
             )}
 
             <div>
-              <label className="label">名刺画像(任意)</label>
+              <label className="label">
+                名刺画像 <span className="text-red-500">*</span>
+              </label>
               {cardPreview ? (
                 <div className="relative inline-block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1018,7 +1025,8 @@ export default function FormPage() {
                 </div>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                5MB以下のJPG / PNG / WEBP / HEIC。スマホは撮影もできます。
+                ご本人確認のため名刺画像の添付が必須です。5MB以下のJPG / PNG /
+                WEBP / HEIC。スマホは撮影もできます。
               </p>
               {ocrRunning && (
                 <p className="text-xs text-emerald-600 mt-1 inline-flex items-center gap-1">
