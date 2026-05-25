@@ -41,7 +41,7 @@ import {
   INQUIRY_STATUS_LABEL,
 } from "@/lib/types";
 import { formatYen, formatBytes, relativeTime, formatDateTime } from "@/lib/format";
-import { QrCodeImage, qrCodeDataUrl } from "@/components/QrCodeImage";
+import { QrCodeImage, qrCodeWithCaptionDataUrl } from "@/components/QrCodeImage";
 import { StorageProviderIcon } from "@/components/StorageProviderIcon";
 import { useToast } from "@/components/Toast";
 import { getSupabase, PROPERTY_DOCS_BUCKET } from "@/lib/supabase";
@@ -88,8 +88,11 @@ export default function PropertyDetailPage() {
     toast.show("フォームURLをコピーしました");
   };
 
+  // 販売図面の帯に貼る用。QR の上に載せる案内文。
+  const QR_CAPTION = "物件の確認、案内予約、資料請求はこちらから";
+
   const downloadQr = async () => {
-    const dataUrl = await qrCodeDataUrl(formUrl, 800);
+    const dataUrl = await qrCodeWithCaptionDataUrl(formUrl, QR_CAPTION, 880);
     const a = document.createElement("a");
     a.href = dataUrl;
     a.download = "qr-" + (property?.title ?? "property") + ".png";
@@ -358,7 +361,10 @@ export default function PropertyDetailPage() {
             <h2 className="font-semibold text-gray-900 mb-4">
               フォームURL / QRコード
             </h2>
-            <div className="mb-4 p-4 bg-white border border-gray-200 rounded mx-auto max-w-[220px]">
+            <div className="mb-4 p-4 bg-white border border-gray-200 rounded mx-auto max-w-[240px]">
+              <p className="text-[11px] font-bold text-gray-900 text-center leading-snug mb-2">
+                {QR_CAPTION}
+              </p>
               <QrCodeImage text={formUrl} size={200} />
             </div>
             <div className="flex items-center gap-1 mb-3">
@@ -387,7 +393,7 @@ export default function PropertyDetailPage() {
               </a>
             </div>
             <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-              QRコードをレインズの物件資料に貼付してください。他業者がスマホで読み取り、フォームから問い合わせ&資料DLが可能になります。
+              ダウンロードした画像は案内文付きで出力されます。販売図面の帯やレインズの物件資料に貼付してください。他業者がスマホで読み取り、フォームから問い合わせ&資料DLが可能になります。
             </p>
           </div>
         </div>
